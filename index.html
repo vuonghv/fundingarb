@@ -3,9 +3,37 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Crypto Funding Rate Arbitrage Dashboard</title>
+    <title>CRYPTO FUNDING ARB &lt;GO&gt;</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
+        :root {
+            --bg-primary: #000000;
+            --bg-secondary: #0a0a12;
+            --bg-panel: #0d0d18;
+            --bg-input: #14141f;
+
+            --bloomberg-orange: #ff6600;
+            --bloomberg-amber: #ffaa00;
+            --bloomberg-yellow: #ffdd00;
+
+            --text-white: #ffffff;
+            --text-amber: #ffcc00;
+            --text-gray: #888899;
+            --text-dark: #555566;
+
+            --positive: #00dd00;
+            --negative: #ff3333;
+            --neutral: #00aaff;
+
+            --border-color: #2a2a3a;
+            --border-bright: #3a3a4a;
+
+            --font-mono: 'IBM Plex Mono', 'Consolas', monospace;
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -13,347 +41,665 @@
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-            background: #0d1117;
-            color: #e6edf3;
+            font-family: var(--font-mono);
+            background: var(--bg-primary);
+            color: var(--text-white);
+            font-size: 12px;
+            line-height: 1.4;
             min-height: 100vh;
-            padding: 20px;
         }
 
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
+        /* Top Menu Bar */
+        .top-bar {
+            background: linear-gradient(180deg, #1a1a2e 0%, #0d0d18 100%);
+            border-bottom: 1px solid var(--border-color);
+            padding: 4px 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
         }
 
-        header {
-            text-align: center;
-            margin-bottom: 30px;
+        .top-bar-left {
+            display: flex;
+            align-items: center;
+            gap: 20px;
         }
 
-        header h1 {
-            font-size: 2rem;
-            color: #58a6ff;
-            margin-bottom: 10px;
+        .logo {
+            color: var(--bloomberg-orange);
+            font-weight: 700;
+            font-size: 14px;
+            letter-spacing: 1px;
         }
 
-        header p {
-            color: #8b949e;
+        .menu-items {
+            display: flex;
+            gap: 2px;
         }
 
-        /* P&L Summary Cards */
-        .pnl-summary {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        .menu-item {
+            padding: 4px 10px;
+            color: var(--text-amber);
+            font-size: 11px;
+            cursor: pointer;
+            border: 1px solid transparent;
+        }
+
+        .menu-item:hover {
+            background: var(--bg-input);
+            border-color: var(--border-color);
+        }
+
+        .menu-item.active {
+            background: var(--bloomberg-orange);
+            color: #000;
+        }
+
+        .top-bar-right {
+            display: flex;
+            align-items: center;
             gap: 15px;
-            margin-bottom: 30px;
+            color: var(--text-gray);
+            font-size: 11px;
         }
 
-        .pnl-card {
-            background: #161b22;
-            border: 1px solid #30363d;
-            border-radius: 10px;
-            padding: 20px;
-            text-align: center;
-        }
-
-        .pnl-card .label {
-            color: #8b949e;
-            font-size: 0.85rem;
-            margin-bottom: 8px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .pnl-card .value {
-            font-family: 'SF Mono', 'Fira Code', monospace;
-            font-size: 1.5rem;
+        .clock {
+            color: var(--bloomberg-yellow);
             font-weight: 600;
         }
 
-        .positive { color: #3fb950; }
-        .negative { color: #f85149; }
-        .neutral { color: #58a6ff; }
-
-        /* Section styling */
-        .section {
-            background: #161b22;
-            border: 1px solid #30363d;
-            border-radius: 10px;
-            padding: 20px;
-            margin-bottom: 20px;
-        }
-
-        .section h2 {
-            font-size: 1.1rem;
-            color: #58a6ff;
-            margin-bottom: 15px;
+        /* Command Line */
+        .command-line {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-color);
+            padding: 6px 10px;
             display: flex;
             align-items: center;
             gap: 10px;
         }
 
-        .section h2::before {
-            content: '';
-            width: 4px;
-            height: 20px;
-            background: #58a6ff;
-            border-radius: 2px;
+        .command-prompt {
+            color: var(--bloomberg-orange);
+            font-weight: 700;
         }
 
-        /* Tables */
-        table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        th, td {
-            padding: 12px;
-            text-align: left;
-            border-bottom: 1px solid #30363d;
-        }
-
-        th {
-            color: #8b949e;
-            font-weight: 500;
-            font-size: 0.85rem;
-            text-transform: uppercase;
-        }
-
-        td {
-            font-family: 'SF Mono', 'Fira Code', monospace;
-            font-size: 0.9rem;
-        }
-
-        tr:hover {
-            background: #1f2937;
-        }
-
-        .exchange-badge {
-            display: inline-block;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 0.75rem;
-            font-weight: 500;
-        }
-
-        .exchange-binance { background: #f0b90b22; color: #f0b90b; }
-        .exchange-bybit { background: #f7a60022; color: #f7a600; }
-        .exchange-okx { background: #00000022; color: #fff; border: 1px solid #444; }
-        .exchange-dydx { background: #6966ff22; color: #6966ff; }
-
-        .countdown {
-            color: #8b949e;
-            font-size: 0.85rem;
-        }
-
-        /* Calculator */
-        .calculator-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-            margin-bottom: 20px;
-        }
-
-        .input-group {
-            display: flex;
-            flex-direction: column;
-            gap: 5px;
-        }
-
-        .input-group label {
-            color: #8b949e;
-            font-size: 0.85rem;
-        }
-
-        .input-group input, .input-group select {
-            background: #0d1117;
-            border: 1px solid #30363d;
-            border-radius: 6px;
-            padding: 10px 12px;
-            color: #e6edf3;
-            font-family: 'SF Mono', 'Fira Code', monospace;
-            font-size: 0.9rem;
-        }
-
-        .input-group input:focus, .input-group select:focus {
-            outline: none;
-            border-color: #58a6ff;
-        }
-
-        .calc-results {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 15px;
-            padding: 15px;
-            background: #0d1117;
-            border-radius: 8px;
-        }
-
-        .calc-result-item {
-            text-align: center;
-        }
-
-        .calc-result-item .label {
-            color: #8b949e;
-            font-size: 0.75rem;
-            margin-bottom: 5px;
-        }
-
-        .calc-result-item .value {
-            font-family: 'SF Mono', 'Fira Code', monospace;
-            font-size: 1.1rem;
-            font-weight: 600;
-        }
-
-        /* Buttons */
-        .btn {
-            padding: 8px 16px;
+        .command-input {
+            flex: 1;
+            background: transparent;
             border: none;
-            border-radius: 6px;
+            color: var(--bloomberg-yellow);
+            font-family: var(--font-mono);
+            font-size: 13px;
+            outline: none;
+        }
+
+        .command-input::placeholder {
+            color: var(--text-dark);
+        }
+
+        .go-button {
+            background: var(--bloomberg-orange);
+            color: #000;
+            border: none;
+            padding: 4px 12px;
+            font-family: var(--font-mono);
+            font-weight: 700;
+            font-size: 11px;
             cursor: pointer;
-            font-size: 0.85rem;
-            font-weight: 500;
-            transition: all 0.2s;
         }
 
-        .btn-primary {
-            background: #238636;
-            color: white;
+        .go-button:hover {
+            background: var(--bloomberg-amber);
         }
 
-        .btn-primary:hover {
-            background: #2ea043;
+        /* Main Layout */
+        .main-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: auto auto auto;
+            gap: 1px;
+            background: var(--border-color);
+            padding: 1px;
         }
 
-        .btn-danger {
-            background: #da363322;
-            color: #f85149;
-            border: 1px solid #f8514933;
-        }
-
-        .btn-danger:hover {
-            background: #da363344;
-        }
-
-        /* Charts */
-        .chart-controls {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 15px;
-            flex-wrap: wrap;
-        }
-
-        .chart-btn {
-            padding: 6px 12px;
-            background: #0d1117;
-            border: 1px solid #30363d;
-            border-radius: 6px;
-            color: #8b949e;
-            cursor: pointer;
-            font-size: 0.85rem;
-            transition: all 0.2s;
-        }
-
-        .chart-btn:hover, .chart-btn.active {
-            border-color: #58a6ff;
-            color: #58a6ff;
-        }
-
-        .chart-container {
-            height: 300px;
+        /* Panel Styles */
+        .panel {
+            background: var(--bg-panel);
             position: relative;
         }
 
-        /* Responsive */
-        @media (max-width: 768px) {
-            .pnl-summary {
-                grid-template-columns: repeat(2, 1fr);
-            }
-
-            th, td {
-                padding: 8px;
-                font-size: 0.8rem;
-            }
-
-            .hide-mobile {
-                display: none;
-            }
+        .panel-header {
+            background: linear-gradient(180deg, #1a1a2e 0%, #12121c 100%);
+            border-bottom: 1px solid var(--border-color);
+            padding: 6px 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
         }
 
-        /* Position status badge */
-        .status-badge {
-            display: inline-block;
-            padding: 3px 8px;
-            border-radius: 12px;
-            font-size: 0.7rem;
+        .panel-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .panel-number {
+            background: var(--bloomberg-orange);
+            color: #000;
+            padding: 1px 5px;
+            font-size: 10px;
+            font-weight: 700;
+        }
+
+        .panel-name {
+            color: var(--bloomberg-amber);
             font-weight: 600;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .panel-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .panel-action {
+            color: var(--text-dark);
+            font-size: 10px;
+            cursor: pointer;
+        }
+
+        .panel-action:hover {
+            color: var(--bloomberg-orange);
+        }
+
+        .panel-body {
+            padding: 8px;
+        }
+
+        /* P&L Summary - Full Width Top */
+        .pnl-panel {
+            grid-column: 1 / -1;
+        }
+
+        .pnl-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1px;
+            background: var(--border-color);
+        }
+
+        .pnl-item {
+            background: var(--bg-primary);
+            padding: 12px 15px;
+            text-align: center;
+        }
+
+        .pnl-label {
+            color: var(--text-gray);
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 6px;
+        }
+
+        .pnl-value {
+            font-size: 20px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+
+        .pnl-value.positive { color: var(--positive); }
+        .pnl-value.negative { color: var(--negative); }
+
+        .pnl-sub {
+            color: var(--text-dark);
+            font-size: 10px;
+            margin-top: 4px;
+        }
+
+        /* Tables */
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 11px;
+        }
+
+        .data-table th {
+            background: var(--bg-secondary);
+            color: var(--text-gray);
+            font-weight: 500;
+            text-align: left;
+            padding: 6px 8px;
+            border-bottom: 1px solid var(--border-color);
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            white-space: nowrap;
+        }
+
+        .data-table td {
+            padding: 5px 8px;
+            border-bottom: 1px solid #1a1a25;
+            white-space: nowrap;
+        }
+
+        .data-table tbody tr:hover {
+            background: var(--bg-input);
+        }
+
+        .data-table tbody tr:nth-child(odd) {
+            background: rgba(255, 255, 255, 0.01);
+        }
+
+        .positive { color: var(--positive); }
+        .negative { color: var(--negative); }
+        .amber { color: var(--bloomberg-amber); }
+        .orange { color: var(--bloomberg-orange); }
+
+        /* Exchange Tags */
+        .exchange-tag {
+            display: inline-block;
+            padding: 2px 6px;
+            font-size: 9px;
+            font-weight: 600;
+            letter-spacing: 0.3px;
+            border: 1px solid;
+        }
+
+        .tag-binance {
+            color: #f0b90b;
+            border-color: #f0b90b;
+            background: rgba(240, 185, 11, 0.1);
+        }
+        .tag-bybit {
+            color: #f7a600;
+            border-color: #f7a600;
+            background: rgba(247, 166, 0, 0.1);
+        }
+        .tag-okx {
+            color: #aaaaaa;
+            border-color: #666666;
+            background: rgba(255, 255, 255, 0.05);
+        }
+        .tag-dydx {
+            color: #6966ff;
+            border-color: #6966ff;
+            background: rgba(105, 102, 255, 0.1);
+        }
+
+        /* Countdown */
+        .countdown-cell {
+            font-variant-numeric: tabular-nums;
+            color: var(--neutral);
+        }
+
+        .countdown-cell.urgent {
+            color: var(--negative);
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+            50% { opacity: 0.5; }
+        }
+
+        /* Calculator Panel */
+        .calc-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .calc-field {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .calc-field label {
+            color: var(--text-gray);
+            font-size: 10px;
             text-transform: uppercase;
         }
 
-        .status-active {
-            background: #238636;
-            color: white;
+        .calc-field input,
+        .calc-field select {
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            color: var(--bloomberg-yellow);
+            font-family: var(--font-mono);
+            font-size: 12px;
+            padding: 6px 8px;
         }
 
-        .status-closed {
-            background: #30363d;
-            color: #8b949e;
+        .calc-field input:focus,
+        .calc-field select:focus {
+            outline: none;
+            border-color: var(--bloomberg-orange);
         }
 
-        /* Two column layout for calculator and chart */
-        .two-col {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
+        .calc-results {
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
         }
 
+        .calc-result-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 6px 10px;
+            border-bottom: 1px solid #1a1a25;
+        }
+
+        .calc-result-row:last-child {
+            border-bottom: none;
+        }
+
+        .calc-result-label {
+            color: var(--text-gray);
+            font-size: 10px;
+            text-transform: uppercase;
+        }
+
+        .calc-result-value {
+            font-weight: 600;
+            font-size: 12px;
+        }
+
+        .calc-result-row.highlight {
+            background: rgba(255, 102, 0, 0.1);
+        }
+
+        .calc-result-row.highlight .calc-result-value {
+            color: var(--bloomberg-orange);
+            font-size: 14px;
+        }
+
+        /* Chart Panel */
+        .chart-tabs {
+            display: flex;
+            gap: 2px;
+            margin-bottom: 8px;
+        }
+
+        .chart-tab {
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            color: var(--text-gray);
+            padding: 4px 12px;
+            font-family: var(--font-mono);
+            font-size: 10px;
+            cursor: pointer;
+        }
+
+        .chart-tab:hover {
+            border-color: var(--bloomberg-orange);
+            color: var(--bloomberg-amber);
+        }
+
+        .chart-tab.active {
+            background: var(--bloomberg-orange);
+            border-color: var(--bloomberg-orange);
+            color: #000;
+            font-weight: 600;
+        }
+
+        .chart-container {
+            height: 200px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            padding: 10px;
+        }
+
+        /* Position buttons */
+        .btn-close {
+            background: transparent;
+            border: 1px solid var(--negative);
+            color: var(--negative);
+            padding: 3px 8px;
+            font-family: var(--font-mono);
+            font-size: 9px;
+            cursor: pointer;
+            text-transform: uppercase;
+        }
+
+        .btn-close:hover {
+            background: var(--negative);
+            color: #000;
+        }
+
+        /* Status indicator */
+        .status-live {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            color: var(--positive);
+            font-size: 9px;
+            text-transform: uppercase;
+        }
+
+        .status-live::before {
+            content: '';
+            width: 6px;
+            height: 6px;
+            background: var(--positive);
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        /* Function Keys Footer */
+        .function-bar {
+            background: linear-gradient(180deg, #1a1a2e 0%, #0d0d18 100%);
+            border-top: 1px solid var(--border-color);
+            padding: 6px 10px;
+            display: flex;
+            gap: 4px;
+            flex-wrap: wrap;
+        }
+
+        .fn-key {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 3px 8px;
+            background: var(--bg-input);
+            border: 1px solid var(--border-color);
+        }
+
+        .fn-key-label {
+            color: var(--bloomberg-amber);
+            font-size: 9px;
+            font-weight: 600;
+        }
+
+        .fn-key-text {
+            color: var(--text-gray);
+            font-size: 9px;
+        }
+
+        /* Ticker Tape */
+        .ticker-tape {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-color);
+            padding: 4px 0;
+            overflow: hidden;
+            white-space: nowrap;
+        }
+
+        .ticker-content {
+            display: inline-block;
+            animation: ticker 30s linear infinite;
+        }
+
+        @keyframes ticker {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
+        }
+
+        .ticker-item {
+            display: inline-block;
+            margin-right: 30px;
+            font-size: 11px;
+        }
+
+        .ticker-symbol {
+            color: var(--bloomberg-amber);
+            font-weight: 600;
+        }
+
+        .ticker-price {
+            color: var(--text-white);
+            margin: 0 6px;
+        }
+
+        .ticker-change {
+            font-size: 10px;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg-primary);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border-color);
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--border-bright);
+        }
+
+        /* Panel scroll */
+        .panel-scroll {
+            max-height: 250px;
+            overflow-y: auto;
+        }
+
+        /* Responsive */
         @media (max-width: 1024px) {
-            .two-col {
+            .main-container {
                 grid-template-columns: 1fr;
+            }
+
+            .pnl-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 600px) {
+            .pnl-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .top-bar-left .menu-items {
+                display: none;
             }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>Funding Rate Arbitrage Dashboard</h1>
-            <p>Track funding rates, calculate arbitrage opportunities, and monitor positions</p>
-        </header>
+    <!-- Top Bar -->
+    <div class="top-bar">
+        <div class="top-bar-left">
+            <div class="logo">FUNDING ARB</div>
+            <div class="menu-items">
+                <div class="menu-item active">MONITOR</div>
+                <div class="menu-item">POSITIONS</div>
+                <div class="menu-item">ANALYTICS</div>
+                <div class="menu-item">SETTINGS</div>
+            </div>
+        </div>
+        <div class="top-bar-right">
+            <span class="status-live">LIVE</span>
+            <span>NYC</span>
+            <span class="clock" id="clock">00:00:00</span>
+        </div>
+    </div>
 
-        <!-- P&L Summary Cards -->
-        <div class="pnl-summary">
-            <div class="pnl-card">
-                <div class="label">Unrealized P&L</div>
-                <div class="value" id="unrealized-pnl">$0.00</div>
+    <!-- Ticker Tape -->
+    <div class="ticker-tape">
+        <div class="ticker-content" id="ticker">
+            <!-- Populated by JS -->
+        </div>
+    </div>
+
+    <!-- Command Line -->
+    <div class="command-line">
+        <span class="command-prompt">&gt;</span>
+        <input type="text" class="command-input" placeholder="Type command or security... (e.g., BTC FUNDING, ETH ARB)" id="commandInput">
+        <button class="go-button">&lt;GO&gt;</button>
+    </div>
+
+    <!-- Main Layout -->
+    <div class="main-container">
+        <!-- P&L Summary Panel -->
+        <div class="panel pnl-panel">
+            <div class="panel-header">
+                <div class="panel-title">
+                    <span class="panel-number">1</span>
+                    <span class="panel-name">P&L Summary</span>
+                </div>
+                <div class="panel-actions">
+                    <span class="panel-action">[EXPORT]</span>
+                    <span class="panel-action">[REFRESH]</span>
+                </div>
             </div>
-            <div class="pnl-card">
-                <div class="label">Realized P&L</div>
-                <div class="value" id="realized-pnl">$0.00</div>
-            </div>
-            <div class="pnl-card">
-                <div class="label">Funding Collected</div>
-                <div class="value" id="funding-collected">$0.00</div>
-            </div>
-            <div class="pnl-card">
-                <div class="label">Net P&L</div>
-                <div class="value" id="net-pnl">$0.00</div>
+            <div class="pnl-grid">
+                <div class="pnl-item">
+                    <div class="pnl-label">Unrealized P&L</div>
+                    <div class="pnl-value" id="unrealized-pnl">+$0.00</div>
+                    <div class="pnl-sub">Open Positions</div>
+                </div>
+                <div class="pnl-item">
+                    <div class="pnl-label">Realized P&L</div>
+                    <div class="pnl-value" id="realized-pnl">+$0.00</div>
+                    <div class="pnl-sub">Closed Positions</div>
+                </div>
+                <div class="pnl-item">
+                    <div class="pnl-label">Funding Collected</div>
+                    <div class="pnl-value" id="funding-collected">+$0.00</div>
+                    <div class="pnl-sub">Cumulative</div>
+                </div>
+                <div class="pnl-item">
+                    <div class="pnl-label">Net P&L</div>
+                    <div class="pnl-value" id="net-pnl">+$0.00</div>
+                    <div class="pnl-sub">Total Return</div>
+                </div>
             </div>
         </div>
 
-        <!-- Funding Rates Table -->
-        <div class="section">
-            <h2>Live Funding Rates</h2>
-            <div style="overflow-x: auto;">
-                <table id="funding-table">
+        <!-- Funding Rates Panel -->
+        <div class="panel">
+            <div class="panel-header">
+                <div class="panel-title">
+                    <span class="panel-number">2</span>
+                    <span class="panel-name">Live Funding Rates</span>
+                </div>
+                <div class="panel-actions">
+                    <span class="panel-action">[SORT]</span>
+                </div>
+            </div>
+            <div class="panel-body panel-scroll">
+                <table class="data-table" id="funding-table">
                     <thead>
                         <tr>
-                            <th>Exchange</th>
+                            <th>Exch</th>
                             <th>Pair</th>
-                            <th>Current Rate</th>
-                            <th>Predicted Rate</th>
-                            <th>Annual APR</th>
-                            <th>Next Funding</th>
+                            <th>Rate</th>
+                            <th>Pred</th>
+                            <th>APR</th>
+                            <th>Next</th>
                         </tr>
                     </thead>
                     <tbody></tbody>
@@ -361,17 +707,24 @@
             </div>
         </div>
 
-        <!-- Two Column: Calculator + Chart -->
-        <div class="two-col">
-            <!-- Arbitrage Calculator -->
-            <div class="section">
-                <h2>Arbitrage Calculator</h2>
-                <div class="calculator-grid">
-                    <div class="input-group">
-                        <label>Position Size (USD)</label>
-                        <input type="number" id="calc-size" value="10000" min="0">
+        <!-- Calculator Panel -->
+        <div class="panel">
+            <div class="panel-header">
+                <div class="panel-title">
+                    <span class="panel-number">3</span>
+                    <span class="panel-name">Arbitrage Calculator</span>
+                </div>
+                <div class="panel-actions">
+                    <span class="panel-action">[CLEAR]</span>
+                </div>
+            </div>
+            <div class="panel-body">
+                <div class="calc-grid">
+                    <div class="calc-field">
+                        <label>Size (USD)</label>
+                        <input type="number" id="calc-size" value="10000">
                     </div>
-                    <div class="input-group">
+                    <div class="calc-field">
                         <label>Leverage</label>
                         <select id="calc-leverage">
                             <option value="1">1x</option>
@@ -381,52 +734,58 @@
                             <option value="10">10x</option>
                         </select>
                     </div>
-                    <div class="input-group">
-                        <label>Long Exchange Rate (%)</label>
+                    <div class="calc-field">
+                        <label>Long Rate %</label>
                         <input type="number" id="calc-long-rate" value="-0.0050" step="0.0001">
                     </div>
-                    <div class="input-group">
-                        <label>Short Exchange Rate (%)</label>
+                    <div class="calc-field">
+                        <label>Short Rate %</label>
                         <input type="number" id="calc-short-rate" value="0.0150" step="0.0001">
                     </div>
                 </div>
-                <button class="btn btn-primary" onclick="calculateArbitrage()">Calculate</button>
-                <div class="calc-results" style="margin-top: 15px;">
-                    <div class="calc-result-item">
-                        <div class="label">Rate Spread</div>
-                        <div class="value positive" id="calc-spread">0.0200%</div>
+                <div class="calc-results">
+                    <div class="calc-result-row">
+                        <span class="calc-result-label">Spread</span>
+                        <span class="calc-result-value positive" id="calc-spread">0.0200%</span>
                     </div>
-                    <div class="calc-result-item">
-                        <div class="label">Per Funding (8h)</div>
-                        <div class="value positive" id="calc-per-funding">$0.00</div>
+                    <div class="calc-result-row">
+                        <span class="calc-result-label">Per 8H</span>
+                        <span class="calc-result-value positive" id="calc-per-funding">$0.00</span>
                     </div>
-                    <div class="calc-result-item">
-                        <div class="label">Daily Profit</div>
-                        <div class="value positive" id="calc-daily">$0.00</div>
+                    <div class="calc-result-row">
+                        <span class="calc-result-label">Daily</span>
+                        <span class="calc-result-value positive" id="calc-daily">$0.00</span>
                     </div>
-                    <div class="calc-result-item">
-                        <div class="label">Weekly Profit</div>
-                        <div class="value positive" id="calc-weekly">$0.00</div>
+                    <div class="calc-result-row">
+                        <span class="calc-result-label">Weekly</span>
+                        <span class="calc-result-value positive" id="calc-weekly">$0.00</span>
                     </div>
-                    <div class="calc-result-item">
-                        <div class="label">Monthly Profit</div>
-                        <div class="value positive" id="calc-monthly">$0.00</div>
+                    <div class="calc-result-row">
+                        <span class="calc-result-label">Monthly</span>
+                        <span class="calc-result-value positive" id="calc-monthly">$0.00</span>
                     </div>
-                    <div class="calc-result-item">
-                        <div class="label">Annual APR</div>
-                        <div class="value positive" id="calc-apr">0.00%</div>
+                    <div class="calc-result-row highlight">
+                        <span class="calc-result-label">Annual APR</span>
+                        <span class="calc-result-value" id="calc-apr">0.00%</span>
                     </div>
                 </div>
             </div>
+        </div>
 
-            <!-- Historical Chart -->
-            <div class="section">
-                <h2>Funding Rate History (7 Days)</h2>
-                <div class="chart-controls">
-                    <button class="chart-btn active" onclick="updateChart('BTC')">BTC</button>
-                    <button class="chart-btn" onclick="updateChart('ETH')">ETH</button>
-                    <button class="chart-btn" onclick="updateChart('SOL')">SOL</button>
-                    <button class="chart-btn" onclick="updateChart('ARB')">ARB</button>
+        <!-- Chart Panel -->
+        <div class="panel">
+            <div class="panel-header">
+                <div class="panel-title">
+                    <span class="panel-number">4</span>
+                    <span class="panel-name">Rate History (7D)</span>
+                </div>
+            </div>
+            <div class="panel-body">
+                <div class="chart-tabs">
+                    <button class="chart-tab active" onclick="updateChart('BTC')">BTC</button>
+                    <button class="chart-tab" onclick="updateChart('ETH')">ETH</button>
+                    <button class="chart-tab" onclick="updateChart('SOL')">SOL</button>
+                    <button class="chart-tab" onclick="updateChart('ARB')">ARB</button>
                 </div>
                 <div class="chart-container">
                     <canvas id="fundingChart"></canvas>
@@ -434,22 +793,29 @@
             </div>
         </div>
 
-        <!-- Position Tracker -->
-        <div class="section">
-            <h2>Position Tracker</h2>
-            <div style="overflow-x: auto;">
-                <table id="positions-table">
+        <!-- Active Positions Panel -->
+        <div class="panel">
+            <div class="panel-header">
+                <div class="panel-title">
+                    <span class="panel-number">5</span>
+                    <span class="panel-name">Active Positions</span>
+                </div>
+                <div class="panel-actions">
+                    <span class="panel-action">[NEW]</span>
+                </div>
+            </div>
+            <div class="panel-body panel-scroll">
+                <table class="data-table" id="positions-table">
                     <thead>
                         <tr>
                             <th>Pair</th>
                             <th>Size</th>
                             <th>Long</th>
                             <th>Short</th>
-                            <th>Entry Date</th>
-                            <th>Funding Collected</th>
-                            <th>Unrealized P&L</th>
-                            <th>Status</th>
-                            <th>Action</th>
+                            <th>Entry</th>
+                            <th>Fund</th>
+                            <th>uPnL</th>
+                            <th></th>
                         </tr>
                     </thead>
                     <tbody></tbody>
@@ -457,26 +823,48 @@
             </div>
         </div>
 
-        <!-- Closed Positions -->
-        <div class="section">
-            <h2>Closed Positions</h2>
-            <div style="overflow-x: auto;">
-                <table id="closed-positions-table">
+        <!-- Closed Positions Panel -->
+        <div class="panel">
+            <div class="panel-header">
+                <div class="panel-title">
+                    <span class="panel-number">6</span>
+                    <span class="panel-name">Closed Positions</span>
+                </div>
+                <div class="panel-actions">
+                    <span class="panel-action">[HISTORY]</span>
+                </div>
+            </div>
+            <div class="panel-body panel-scroll">
+                <table class="data-table" id="closed-positions-table">
                     <thead>
                         <tr>
                             <th>Pair</th>
                             <th>Size</th>
                             <th>Long</th>
                             <th>Short</th>
-                            <th>Duration</th>
-                            <th>Funding Collected</th>
-                            <th>Realized P&L</th>
+                            <th>Dur</th>
+                            <th>Fund</th>
+                            <th>rPnL</th>
                         </tr>
                     </thead>
                     <tbody></tbody>
                 </table>
             </div>
         </div>
+    </div>
+
+    <!-- Function Keys -->
+    <div class="function-bar">
+        <div class="fn-key"><span class="fn-key-label">F1</span><span class="fn-key-text">Help</span></div>
+        <div class="fn-key"><span class="fn-key-label">F2</span><span class="fn-key-text">Rates</span></div>
+        <div class="fn-key"><span class="fn-key-label">F3</span><span class="fn-key-text">Calc</span></div>
+        <div class="fn-key"><span class="fn-key-label">F4</span><span class="fn-key-text">Chart</span></div>
+        <div class="fn-key"><span class="fn-key-label">F5</span><span class="fn-key-text">Positions</span></div>
+        <div class="fn-key"><span class="fn-key-label">F6</span><span class="fn-key-text">History</span></div>
+        <div class="fn-key"><span class="fn-key-label">F7</span><span class="fn-key-text">Alerts</span></div>
+        <div class="fn-key"><span class="fn-key-label">F8</span><span class="fn-key-text">Export</span></div>
+        <div class="fn-key"><span class="fn-key-label">F9</span><span class="fn-key-text">News</span></div>
+        <div class="fn-key"><span class="fn-key-label">F10</span><span class="fn-key-text">Settings</span></div>
     </div>
 
     <script>
@@ -495,61 +883,13 @@
                 { exchange: 'dYdX', pair: 'ETH/USD', rate: -0.0030, predicted: -0.0025, nextFunding: 3600 },
             ],
             positions: [
-                {
-                    id: 1,
-                    pair: 'BTC/USDT',
-                    size: 50000,
-                    longExchange: 'dYdX',
-                    shortExchange: 'Binance',
-                    entryDate: '2024-12-15',
-                    fundingCollected: 245.50,
-                    unrealizedPnl: 82.30,
-                    status: 'active'
-                },
-                {
-                    id: 2,
-                    pair: 'ETH/USDT',
-                    size: 30000,
-                    longExchange: 'dYdX',
-                    shortExchange: 'Bybit',
-                    entryDate: '2024-12-18',
-                    fundingCollected: 112.80,
-                    unrealizedPnl: -15.20,
-                    status: 'active'
-                },
-                {
-                    id: 3,
-                    pair: 'SOL/USDT',
-                    size: 20000,
-                    longExchange: 'Bybit',
-                    shortExchange: 'Binance',
-                    entryDate: '2024-12-20',
-                    fundingCollected: 78.40,
-                    unrealizedPnl: 45.60,
-                    status: 'active'
-                }
+                { id: 1, pair: 'BTC/USDT', size: 50000, longExchange: 'dYdX', shortExchange: 'Binance', entryDate: '2024-12-15', fundingCollected: 245.50, unrealizedPnl: 82.30, status: 'active' },
+                { id: 2, pair: 'ETH/USDT', size: 30000, longExchange: 'dYdX', shortExchange: 'Bybit', entryDate: '2024-12-18', fundingCollected: 112.80, unrealizedPnl: -15.20, status: 'active' },
+                { id: 3, pair: 'SOL/USDT', size: 20000, longExchange: 'Bybit', shortExchange: 'Binance', entryDate: '2024-12-20', fundingCollected: 78.40, unrealizedPnl: 45.60, status: 'active' }
             ],
             closedPositions: [
-                {
-                    id: 101,
-                    pair: 'BTC/USDT',
-                    size: 25000,
-                    longExchange: 'dYdX',
-                    shortExchange: 'OKX',
-                    duration: '12 days',
-                    fundingCollected: 320.00,
-                    realizedPnl: 285.50
-                },
-                {
-                    id: 102,
-                    pair: 'ETH/USDT',
-                    size: 15000,
-                    longExchange: 'Bybit',
-                    shortExchange: 'Binance',
-                    duration: '8 days',
-                    fundingCollected: 145.20,
-                    realizedPnl: 122.80
-                }
+                { id: 101, pair: 'BTC/USDT', size: 25000, longExchange: 'dYdX', shortExchange: 'OKX', duration: '12d', fundingCollected: 320.00, realizedPnl: 285.50 },
+                { id: 102, pair: 'ETH/USDT', size: 15000, longExchange: 'Bybit', shortExchange: 'Binance', duration: '8d', fundingCollected: 145.20, realizedPnl: 122.80 }
             ],
             historicalRates: {
                 BTC: {
@@ -579,7 +919,6 @@
             }
         };
 
-        // Chart instance
         let fundingChart = null;
 
         // Initialize
@@ -591,44 +930,77 @@
             initChart();
             calculateArbitrage();
             startCountdown();
+            startClock();
+            initTicker();
         });
 
-        // Render funding rates table
+        // Clock
+        function startClock() {
+            const update = () => {
+                const now = new Date();
+                document.getElementById('clock').textContent = now.toLocaleTimeString('en-US', { hour12: false });
+            };
+            update();
+            setInterval(update, 1000);
+        }
+
+        // Ticker tape
+        function initTicker() {
+            const tickers = [
+                { symbol: 'BTC', price: '94,521.00', change: '+2.34%', up: true },
+                { symbol: 'ETH', price: '3,412.50', change: '+1.89%', up: true },
+                { symbol: 'SOL', price: '189.30', change: '-0.52%', up: false },
+                { symbol: 'ARB', price: '0.812', change: '+4.21%', up: true },
+                { symbol: 'BNB', price: '702.40', change: '+0.95%', up: true },
+                { symbol: 'DOGE', price: '0.321', change: '-1.23%', up: false },
+            ];
+
+            const content = tickers.map(t =>
+                `<span class="ticker-item">
+                    <span class="ticker-symbol">${t.symbol}</span>
+                    <span class="ticker-price">${t.price}</span>
+                    <span class="ticker-change ${t.up ? 'positive' : 'negative'}">${t.change}</span>
+                </span>`
+            ).join('');
+
+            document.getElementById('ticker').innerHTML = content + content;
+        }
+
+        // Render funding rates
         function renderFundingRates() {
             const tbody = document.querySelector('#funding-table tbody');
             tbody.innerHTML = mockData.fundingRates.map(item => {
-                const apr = (item.rate * 3 * 365).toFixed(2);
+                const apr = (item.rate * 3 * 365).toFixed(1);
                 const rateClass = item.rate >= 0 ? 'positive' : 'negative';
-                const exchangeClass = `exchange-${item.exchange.toLowerCase()}`;
+                const tagClass = `tag-${item.exchange.toLowerCase()}`;
                 return `
                     <tr>
-                        <td><span class="exchange-badge ${exchangeClass}">${item.exchange}</span></td>
-                        <td>${item.pair}</td>
+                        <td><span class="exchange-tag ${tagClass}">${item.exchange.substring(0, 3).toUpperCase()}</span></td>
+                        <td class="amber">${item.pair}</td>
                         <td class="${rateClass}">${item.rate >= 0 ? '+' : ''}${item.rate.toFixed(4)}%</td>
                         <td class="${item.predicted >= 0 ? 'positive' : 'negative'}">${item.predicted >= 0 ? '+' : ''}${item.predicted.toFixed(4)}%</td>
                         <td class="${rateClass}">${apr}%</td>
-                        <td class="countdown" data-seconds="${item.nextFunding}">--:--:--</td>
+                        <td class="countdown-cell" data-seconds="${item.nextFunding}">--:--</td>
                     </tr>
                 `;
             }).join('');
         }
 
-        // Render positions table
+        // Render positions
         function renderPositions() {
             const tbody = document.querySelector('#positions-table tbody');
             tbody.innerHTML = mockData.positions.filter(p => p.status === 'active').map(pos => {
                 const pnlClass = pos.unrealizedPnl >= 0 ? 'positive' : 'negative';
                 return `
                     <tr>
-                        <td>${pos.pair}</td>
-                        <td>$${pos.size.toLocaleString()}</td>
-                        <td><span class="exchange-badge exchange-${pos.longExchange.toLowerCase()}">${pos.longExchange}</span></td>
-                        <td><span class="exchange-badge exchange-${pos.shortExchange.toLowerCase()}">${pos.shortExchange}</span></td>
-                        <td>${pos.entryDate}</td>
-                        <td class="positive">+$${pos.fundingCollected.toFixed(2)}</td>
-                        <td class="${pnlClass}">${pos.unrealizedPnl >= 0 ? '+' : ''}$${pos.unrealizedPnl.toFixed(2)}</td>
-                        <td><span class="status-badge status-active">Active</span></td>
-                        <td><button class="btn btn-danger" onclick="closePosition(${pos.id})">Close</button></td>
+                        <td class="amber">${pos.pair}</td>
+                        <td>$${(pos.size/1000).toFixed(0)}K</td>
+                        <td><span class="exchange-tag tag-${pos.longExchange.toLowerCase()}">${pos.longExchange.substring(0,3).toUpperCase()}</span></td>
+                        <td><span class="exchange-tag tag-${pos.shortExchange.toLowerCase()}">${pos.shortExchange.substring(0,3).toUpperCase()}</span></td>
+                        <td>${pos.entryDate.substring(5)}</td>
+                        <td class="positive">+$${pos.fundingCollected.toFixed(0)}</td>
+                        <td class="${pnlClass}">${pos.unrealizedPnl >= 0 ? '+' : ''}$${pos.unrealizedPnl.toFixed(0)}</td>
+                        <td><button class="btn-close" onclick="closePosition(${pos.id})">CLOSE</button></td>
                     </tr>
                 `;
             }).join('');
@@ -641,13 +1013,13 @@
                 const pnlClass = pos.realizedPnl >= 0 ? 'positive' : 'negative';
                 return `
                     <tr>
-                        <td>${pos.pair}</td>
-                        <td>$${pos.size.toLocaleString()}</td>
-                        <td><span class="exchange-badge exchange-${pos.longExchange.toLowerCase()}">${pos.longExchange}</span></td>
-                        <td><span class="exchange-badge exchange-${pos.shortExchange.toLowerCase()}">${pos.shortExchange}</span></td>
+                        <td class="amber">${pos.pair}</td>
+                        <td>$${(pos.size/1000).toFixed(0)}K</td>
+                        <td><span class="exchange-tag tag-${pos.longExchange.toLowerCase()}">${pos.longExchange.substring(0,3).toUpperCase()}</span></td>
+                        <td><span class="exchange-tag tag-${pos.shortExchange.toLowerCase()}">${pos.shortExchange.substring(0,3).toUpperCase()}</span></td>
                         <td>${pos.duration}</td>
-                        <td class="positive">+$${pos.fundingCollected.toFixed(2)}</td>
-                        <td class="${pnlClass}">${pos.realizedPnl >= 0 ? '+' : ''}$${pos.realizedPnl.toFixed(2)}</td>
+                        <td class="positive">+$${pos.fundingCollected.toFixed(0)}</td>
+                        <td class="${pnlClass}">${pos.realizedPnl >= 0 ? '+' : ''}$${pos.realizedPnl.toFixed(0)}</td>
                     </tr>
                 `;
             }).join('');
@@ -656,7 +1028,6 @@
         // Update P&L summary
         function updatePnLSummary() {
             const activePositions = mockData.positions.filter(p => p.status === 'active');
-
             const unrealizedPnl = activePositions.reduce((sum, p) => sum + p.unrealizedPnl, 0);
             const fundingCollected = activePositions.reduce((sum, p) => sum + p.fundingCollected, 0) +
                                     mockData.closedPositions.reduce((sum, p) => sum + p.fundingCollected, 0);
@@ -672,41 +1043,46 @@
         function updatePnLCard(id, value) {
             const el = document.getElementById(id);
             el.textContent = `${value >= 0 ? '+' : ''}$${value.toFixed(2)}`;
-            el.className = `value ${value >= 0 ? 'positive' : 'negative'}`;
+            el.className = `pnl-value ${value >= 0 ? 'positive' : 'negative'}`;
         }
 
-        // Arbitrage calculator
+        // Calculator
         function calculateArbitrage() {
             const size = parseFloat(document.getElementById('calc-size').value) || 0;
             const leverage = parseFloat(document.getElementById('calc-leverage').value) || 1;
             const longRate = parseFloat(document.getElementById('calc-long-rate').value) || 0;
             const shortRate = parseFloat(document.getElementById('calc-short-rate').value) || 0;
 
-            // Spread is what we earn: we receive on short (positive rate) and pay on long (negative rate means we receive)
             const spread = shortRate - longRate;
             const effectiveSize = size * leverage;
-
             const perFunding = (effectiveSize * spread) / 100;
-            const daily = perFunding * 3; // 3 funding periods per day
+            const daily = perFunding * 3;
             const weekly = daily * 7;
             const monthly = daily * 30;
-            const apr = spread * 3 * 365; // Annualized
+            const apr = spread * 3 * 365;
+
+            const isPositive = spread >= 0;
+            const cls = isPositive ? 'positive' : 'negative';
 
             document.getElementById('calc-spread').textContent = `${spread.toFixed(4)}%`;
-            document.getElementById('calc-per-funding').textContent = `$${perFunding.toFixed(2)}`;
-            document.getElementById('calc-daily').textContent = `$${daily.toFixed(2)}`;
-            document.getElementById('calc-weekly').textContent = `$${weekly.toFixed(2)}`;
-            document.getElementById('calc-monthly').textContent = `$${monthly.toFixed(2)}`;
-            document.getElementById('calc-apr').textContent = `${apr.toFixed(2)}%`;
+            document.getElementById('calc-spread').className = `calc-result-value ${cls}`;
 
-            // Update colors
-            const isPositive = spread >= 0;
-            ['calc-spread', 'calc-per-funding', 'calc-daily', 'calc-weekly', 'calc-monthly', 'calc-apr'].forEach(id => {
-                document.getElementById(id).className = `value ${isPositive ? 'positive' : 'negative'}`;
-            });
+            document.getElementById('calc-per-funding').textContent = `$${perFunding.toFixed(2)}`;
+            document.getElementById('calc-per-funding').className = `calc-result-value ${cls}`;
+
+            document.getElementById('calc-daily').textContent = `$${daily.toFixed(2)}`;
+            document.getElementById('calc-daily').className = `calc-result-value ${cls}`;
+
+            document.getElementById('calc-weekly').textContent = `$${weekly.toFixed(2)}`;
+            document.getElementById('calc-weekly').className = `calc-result-value ${cls}`;
+
+            document.getElementById('calc-monthly').textContent = `$${monthly.toFixed(2)}`;
+            document.getElementById('calc-monthly').className = `calc-result-value ${cls}`;
+
+            document.getElementById('calc-apr').textContent = `${apr.toFixed(2)}%`;
         }
 
-        // Close position (simulation)
+        // Close position
         function closePosition(id) {
             const pos = mockData.positions.find(p => p.id === id);
             if (pos) {
@@ -714,7 +1090,7 @@
                 const realized = pos.fundingCollected + pos.unrealizedPnl;
                 mockData.closedPositions.unshift({
                     ...pos,
-                    duration: `${Math.floor((Date.now() - new Date(pos.entryDate).getTime()) / (1000 * 60 * 60 * 24))} days`,
+                    duration: `${Math.floor((Date.now() - new Date(pos.entryDate).getTime()) / (1000 * 60 * 60 * 24))}d`,
                     realizedPnl: realized
                 });
                 renderPositions();
@@ -723,7 +1099,7 @@
             }
         }
 
-        // Initialize chart
+        // Chart
         function initChart() {
             const ctx = document.getElementById('fundingChart').getContext('2d');
             const data = mockData.historicalRates.BTC;
@@ -737,51 +1113,71 @@
                             label: 'Binance',
                             data: data.binance,
                             borderColor: '#f0b90b',
-                            backgroundColor: '#f0b90b22',
-                            tension: 0.3,
-                            fill: false
+                            backgroundColor: 'transparent',
+                            borderWidth: 1.5,
+                            pointRadius: 0,
+                            tension: 0.1
                         },
                         {
                             label: 'Bybit',
                             data: data.bybit,
                             borderColor: '#f7a600',
-                            backgroundColor: '#f7a60022',
-                            tension: 0.3,
-                            fill: false
+                            backgroundColor: 'transparent',
+                            borderWidth: 1.5,
+                            pointRadius: 0,
+                            tension: 0.1
                         },
                         {
                             label: 'dYdX',
                             data: data.dydx,
                             borderColor: '#6966ff',
-                            backgroundColor: '#6966ff22',
-                            tension: 0.3,
-                            fill: false
+                            backgroundColor: 'transparent',
+                            borderWidth: 1.5,
+                            pointRadius: 0,
+                            tension: 0.1
                         }
                     ]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    interaction: { intersect: false, mode: 'index' },
                     plugins: {
                         legend: {
-                            labels: { color: '#8b949e' }
+                            position: 'bottom',
+                            labels: {
+                                color: '#888899',
+                                usePointStyle: true,
+                                pointStyle: 'line',
+                                padding: 15,
+                                font: { family: "'IBM Plex Mono'", size: 10 }
+                            }
                         },
                         tooltip: {
+                            backgroundColor: '#1a1a2e',
+                            titleColor: '#ffcc00',
+                            bodyColor: '#ffffff',
+                            borderColor: '#2a2a3a',
+                            borderWidth: 1,
+                            padding: 8,
+                            titleFont: { family: "'IBM Plex Mono'", size: 10 },
+                            bodyFont: { family: "'IBM Plex Mono'", size: 10 },
                             callbacks: {
-                                label: (ctx) => `${ctx.dataset.label}: ${ctx.parsed.y.toFixed(4)}%`
+                                label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y >= 0 ? '+' : ''}${ctx.parsed.y.toFixed(4)}%`
                             }
                         }
                     },
                     scales: {
                         x: {
-                            grid: { color: '#30363d' },
-                            ticks: { color: '#8b949e' }
+                            grid: { color: '#1a1a25', drawBorder: false },
+                            ticks: { color: '#555566', font: { family: "'IBM Plex Mono'", size: 9 } }
                         },
                         y: {
-                            grid: { color: '#30363d' },
+                            grid: { color: '#1a1a25', drawBorder: false },
                             ticks: {
-                                color: '#8b949e',
-                                callback: (value) => `${value.toFixed(3)}%`
+                                color: '#555566',
+                                font: { family: "'IBM Plex Mono'", size: 9 },
+                                callback: v => `${v >= 0 ? '+' : ''}${v.toFixed(3)}%`
                             }
                         }
                     }
@@ -789,7 +1185,6 @@
             });
         }
 
-        // Update chart with different pair
         function updateChart(pair) {
             const data = mockData.historicalRates[pair];
             if (!data) return;
@@ -798,18 +1193,17 @@
             fundingChart.data.datasets[0].data = data.binance;
             fundingChart.data.datasets[1].data = data.bybit;
             fundingChart.data.datasets[2].data = data.dydx;
-            fundingChart.update();
+            fundingChart.update('active');
 
-            // Update active button
-            document.querySelectorAll('.chart-btn').forEach(btn => {
+            document.querySelectorAll('.chart-tab').forEach(btn => {
                 btn.classList.toggle('active', btn.textContent === pair);
             });
         }
 
-        // Countdown timer
+        // Countdown
         function startCountdown() {
             setInterval(() => {
-                document.querySelectorAll('.countdown[data-seconds]').forEach(el => {
+                document.querySelectorAll('.countdown-cell[data-seconds]').forEach(el => {
                     let seconds = parseInt(el.dataset.seconds);
                     if (seconds > 0) {
                         seconds--;
@@ -817,15 +1211,28 @@
                         const h = Math.floor(seconds / 3600);
                         const m = Math.floor((seconds % 3600) / 60);
                         const s = seconds % 60;
-                        el.textContent = `${h}h ${m.toString().padStart(2, '0')}m ${s.toString().padStart(2, '0')}s`;
+                        el.textContent = `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+                        el.classList.toggle('urgent', seconds < 300);
                     }
                 });
             }, 1000);
         }
 
-        // Auto-update calculator on input change
+        // Auto-calculate
         document.querySelectorAll('#calc-size, #calc-leverage, #calc-long-rate, #calc-short-rate').forEach(el => {
             el.addEventListener('input', calculateArbitrage);
+        });
+
+        // Command input
+        document.getElementById('commandInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                const cmd = e.target.value.toUpperCase();
+                if (cmd.includes('BTC')) updateChart('BTC');
+                else if (cmd.includes('ETH')) updateChart('ETH');
+                else if (cmd.includes('SOL')) updateChart('SOL');
+                else if (cmd.includes('ARB')) updateChart('ARB');
+                e.target.value = '';
+            }
         });
     </script>
 </body>

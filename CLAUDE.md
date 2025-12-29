@@ -2,12 +2,13 @@
 
 ## Project Overview
 
-A single-page dashboard for tracking crypto funding rate arbitrage strategies. Built with vanilla HTML, CSS, and JavaScript with no build tools required.
+A single-page dashboard for tracking crypto funding rate arbitrage strategies. Built with vanilla HTML, CSS, and JavaScript with no build tools required. Features a Bloomberg Terminal-inspired design for professional traders.
 
 ## Tech Stack
 
 - HTML5 + CSS3 + Vanilla JavaScript
 - Chart.js (CDN) for historical charts
+- IBM Plex Mono font (Google Fonts)
 - Mock/static data
 
 ## Features
@@ -23,7 +24,7 @@ A single-page dashboard for tracking crypto funding rate arbitrage strategies. B
 - Pairs: BTC, ETH, SOL
 - Current and predicted rates
 - Annualized APR calculation
-- Countdown timer to next funding period
+- Countdown timer to next funding period (blinks when < 5 min)
 
 ### 3. Arbitrage Calculator
 - Input: position size, leverage, long/short exchange rates
@@ -43,6 +44,14 @@ A single-page dashboard for tracking crypto funding rate arbitrage strategies. B
 - Toggle between BTC, ETH, SOL, ARB
 - Compare rates across Binance, Bybit, dYdX
 
+### 7. Bloomberg Terminal UI Elements
+- Top menu bar with navigation tabs
+- Scrolling ticker tape with live prices
+- Command line input (type BTC, ETH, SOL, ARB + Enter to switch charts)
+- Function key bar (F1-F10)
+- Live clock with timezone indicator
+- Numbered panel system
+
 ## File Structure
 
 ```
@@ -61,10 +70,30 @@ Or serve with any static file server.
 
 ## Design
 
-- Dark theme (#0d1117 background)
-- Green (#3fb950) for positive values
-- Red (#f85149) for negative values
-- Blue (#58a6ff) for accents
-- Exchange-specific badge colors
-- Responsive layout for mobile
-- Monospace fonts for numbers
+Bloomberg Terminal aesthetic:
+
+- **Colors**
+  - Background: Pure black (#000000)
+  - Primary accent: Bloomberg orange (#ff6600)
+  - Text: Amber (#ffcc00), white, gray hierarchy
+  - Positive: Green (#00dd00)
+  - Negative: Red (#ff3333)
+  - Neutral/info: Blue (#00aaff)
+
+- **Typography**
+  - IBM Plex Mono throughout (monospace terminal style)
+  - Dense, compact text (11-12px base)
+  - Uppercase labels and headers
+
+- **Layout**
+  - 2-column grid with 1px borders
+  - Numbered panels (1-6)
+  - Minimal padding, maximum information density
+  - Panel headers with action buttons ([EXPORT], [SORT], etc.)
+
+- **Interactive Elements**
+  - Exchange tags with brand colors (BIN, BYB, OKX, DYD)
+  - Command line with `>` prompt and `<GO>` button
+  - Function key hints (F1-F10)
+  - Blinking countdown for urgent states
+  - Scrolling ticker tape
