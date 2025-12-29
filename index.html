@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crypto Funding Rate Arbitrage Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: #0d1117;
+            color: #e6edf3;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        header h1 {
+            font-size: 2rem;
+            color: #58a6ff;
+            margin-bottom: 10px;
+        }
+
+        header p {
+            color: #8b949e;
+        }
+
+        /* P&L Summary Cards */
+        .pnl-summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .pnl-card {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .pnl-card .label {
+            color: #8b949e;
+            font-size: 0.85rem;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .pnl-card .value {
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        .positive { color: #3fb950; }
+        .negative { color: #f85149; }
+        .neutral { color: #58a6ff; }
+
+        /* Section styling */
+        .section {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .section h2 {
+            font-size: 1.1rem;
+            color: #58a6ff;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .section h2::before {
+            content: '';
+            width: 4px;
+            height: 20px;
+            background: #58a6ff;
+            border-radius: 2px;
+        }
+
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #30363d;
+        }
+
+        th {
+            color: #8b949e;
+            font-weight: 500;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+        }
+
+        td {
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            font-size: 0.9rem;
+        }
+
+        tr:hover {
+            background: #1f2937;
+        }
+
+        .exchange-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .exchange-binance { background: #f0b90b22; color: #f0b90b; }
+        .exchange-bybit { background: #f7a60022; color: #f7a600; }
+        .exchange-okx { background: #00000022; color: #fff; border: 1px solid #444; }
+        .exchange-dydx { background: #6966ff22; color: #6966ff; }
+
+        .countdown {
+            color: #8b949e;
+            font-size: 0.85rem;
+        }
+
+        /* Calculator */
+        .calculator-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .input-group label {
+            color: #8b949e;
+            font-size: 0.85rem;
+        }
+
+        .input-group input, .input-group select {
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            padding: 10px 12px;
+            color: #e6edf3;
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            font-size: 0.9rem;
+        }
+
+        .input-group input:focus, .input-group select:focus {
+            outline: none;
+            border-color: #58a6ff;
+        }
+
+        .calc-results {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            padding: 15px;
+            background: #0d1117;
+            border-radius: 8px;
+        }
+
+        .calc-result-item {
+            text-align: center;
+        }
+
+        .calc-result-item .label {
+            color: #8b949e;
+            font-size: 0.75rem;
+            margin-bottom: 5px;
+        }
+
+        .calc-result-item .value {
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+
+        /* Buttons */
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: #238636;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #2ea043;
+        }
+
+        .btn-danger {
+            background: #da363322;
+            color: #f85149;
+            border: 1px solid #f8514933;
+        }
+
+        .btn-danger:hover {
+            background: #da363344;
+        }
+
+        /* Charts */
+        .chart-controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+
+        .chart-btn {
+            padding: 6px 12px;
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            color: #8b949e;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: all 0.2s;
+        }
+
+        .chart-btn:hover, .chart-btn.active {
+            border-color: #58a6ff;
+            color: #58a6ff;
+        }
+
+        .chart-container {
+            height: 300px;
+            position: relative;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .pnl-summary {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            th, td {
+                padding: 8px;
+                font-size: 0.8rem;
+            }
+
+            .hide-mobile {
+                display: none;
+            }
+        }
+
+        /* Position status badge */
+        .status-badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .status-active {
+            background: #238636;
+            color: white;
+        }
+
+        .status-closed {
+            background: #30363d;
+            color: #8b949e;
+        }
+
+        /* Two column layout for calculator and chart */
+        .two-col {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 1024px) {
+            .two-col {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Funding Rate Arbitrage Dashboard</h1>
+            <p>Track funding rates, calculate arbitrage opportunities, and monitor positions</p>
+        </header>
+
+        <!-- P&L Summary Cards -->
+        <div class="pnl-summary">
+            <div class="pnl-card">
+                <div class="label">Unrealized P&L</div>
+                <div class="value" id="unrealized-pnl">$0.00</div>
+            </div>
+            <div class="pnl-card">
+                <div class="label">Realized P&L</div>
+                <div class="value" id="realized-pnl">$0.00</div>
+            </div>
+            <div class="pnl-card">
+                <div class="label">Funding Collected</div>
+                <div class="value" id="funding-collected">$0.00</div>
+            </div>
+            <div class="pnl-card">
+                <div class="label">Net P&L</div>
+                <div class="value" id="net-pnl">$0.00</div>
+            </div>
+        </div>
+
+        <!-- Funding Rates Table -->
+        <div class="section">
+            <h2>Live Funding Rates</h2>
+            <div style="overflow-x: auto;">
+                <table id="funding-table">
+                    <thead>
+                        <tr>
+                            <th>Exchange</th>
+                            <th>Pair</th>
+                            <th>Current Rate</th>
+                            <th>Predicted Rate</th>
+                            <th>Annual APR</th>
+                            <th>Next Funding</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Two Column: Calculator + Chart -->
+        <div class="two-col">
+            <!-- Arbitrage Calculator -->
+            <div class="section">
+                <h2>Arbitrage Calculator</h2>
+                <div class="calculator-grid">
+                    <div class="input-group">
+                        <label>Position Size (USD)</label>
+                        <input type="number" id="calc-size" value="10000" min="0">
+                    </div>
+                    <div class="input-group">
+                        <label>Leverage</label>
+                        <select id="calc-leverage">
+                            <option value="1">1x</option>
+                            <option value="2">2x</option>
+                            <option value="3" selected>3x</option>
+                            <option value="5">5x</option>
+                            <option value="10">10x</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label>Long Exchange Rate (%)</label>
+                        <input type="number" id="calc-long-rate" value="-0.0050" step="0.0001">
+                    </div>
+                    <div class="input-group">
+                        <label>Short Exchange Rate (%)</label>
+                        <input type="number" id="calc-short-rate" value="0.0150" step="0.0001">
+                    </div>
+                </div>
+                <button class="btn btn-primary" onclick="calculateArbitrage()">Calculate</button>
+                <div class="calc-results" style="margin-top: 15px;">
+                    <div class="calc-result-item">
+                        <div class="label">Rate Spread</div>
+                        <div class="value positive" id="calc-spread">0.0200%</div>
+                    </div>
+                    <div class="calc-result-item">
+                        <div class="label">Per Funding (8h)</div>
+                        <div class="value positive" id="calc-per-funding">$0.00</div>
+                    </div>
+                    <div class="calc-result-item">
+                        <div class="label">Daily Profit</div>
+                        <div class="value positive" id="calc-daily">$0.00</div>
+                    </div>
+                    <div class="calc-result-item">
+                        <div class="label">Weekly Profit</div>
+                        <div class="value positive" id="calc-weekly">$0.00</div>
+                    </div>
+                    <div class="calc-result-item">
+                        <div class="label">Monthly Profit</div>
+                        <div class="value positive" id="calc-monthly">$0.00</div>
+                    </div>
+                    <div class="calc-result-item">
+                        <div class="label">Annual APR</div>
+                        <div class="value positive" id="calc-apr">0.00%</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Historical Chart -->
+            <div class="section">
+                <h2>Funding Rate History (7 Days)</h2>
+                <div class="chart-controls">
+                    <button class="chart-btn active" onclick="updateChart('BTC')">BTC</button>
+                    <button class="chart-btn" onclick="updateChart('ETH')">ETH</button>
+                    <button class="chart-btn" onclick="updateChart('SOL')">SOL</button>
+                    <button class="chart-btn" onclick="updateChart('ARB')">ARB</button>
+                </div>
+                <div class="chart-container">
+                    <canvas id="fundingChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Position Tracker -->
+        <div class="section">
+            <h2>Position Tracker</h2>
+            <div style="overflow-x: auto;">
+                <table id="positions-table">
+                    <thead>
+                        <tr>
+                            <th>Pair</th>
+                            <th>Size</th>
+                            <th>Long</th>
+                            <th>Short</th>
+                            <th>Entry Date</th>
+                            <th>Funding Collected</th>
+                            <th>Unrealized P&L</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Closed Positions -->
+        <div class="section">
+            <h2>Closed Positions</h2>
+            <div style="overflow-x: auto;">
+                <table id="closed-positions-table">
+                    <thead>
+                        <tr>
+                            <th>Pair</th>
+                            <th>Size</th>
+                            <th>Long</th>
+                            <th>Short</th>
+                            <th>Duration</th>
+                            <th>Funding Collected</th>
+                            <th>Realized P&L</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Mock Data
+        const mockData = {
+            fundingRates: [
+                { exchange: 'Binance', pair: 'BTC/USDT', rate: 0.0100, predicted: 0.0085, nextFunding: 14520 },
+                { exchange: 'Binance', pair: 'ETH/USDT', rate: 0.0120, predicted: 0.0110, nextFunding: 14520 },
+                { exchange: 'Binance', pair: 'SOL/USDT', rate: 0.0250, predicted: 0.0200, nextFunding: 14520 },
+                { exchange: 'Bybit', pair: 'BTC/USDT', rate: 0.0080, predicted: 0.0075, nextFunding: 14520 },
+                { exchange: 'Bybit', pair: 'ETH/USDT', rate: 0.0095, predicted: 0.0090, nextFunding: 14520 },
+                { exchange: 'Bybit', pair: 'SOL/USDT', rate: 0.0180, predicted: 0.0160, nextFunding: 14520 },
+                { exchange: 'OKX', pair: 'BTC/USDT', rate: 0.0090, predicted: 0.0082, nextFunding: 14520 },
+                { exchange: 'OKX', pair: 'ETH/USDT', rate: 0.0105, predicted: 0.0098, nextFunding: 14520 },
+                { exchange: 'dYdX', pair: 'BTC/USD', rate: -0.0050, predicted: -0.0040, nextFunding: 3600 },
+                { exchange: 'dYdX', pair: 'ETH/USD', rate: -0.0030, predicted: -0.0025, nextFunding: 3600 },
+            ],
+            positions: [
+                {
+                    id: 1,
+                    pair: 'BTC/USDT',
+                    size: 50000,
+                    longExchange: 'dYdX',
+                    shortExchange: 'Binance',
+                    entryDate: '2024-12-15',
+                    fundingCollected: 245.50,
+                    unrealizedPnl: 82.30,
+                    status: 'active'
+                },
+                {
+                    id: 2,
+                    pair: 'ETH/USDT',
+                    size: 30000,
+                    longExchange: 'dYdX',
+                    shortExchange: 'Bybit',
+                    entryDate: '2024-12-18',
+                    fundingCollected: 112.80,
+                    unrealizedPnl: -15.20,
+                    status: 'active'
+                },
+                {
+                    id: 3,
+                    pair: 'SOL/USDT',
+                    size: 20000,
+                    longExchange: 'Bybit',
+                    shortExchange: 'Binance',
+                    entryDate: '2024-12-20',
+                    fundingCollected: 78.40,
+                    unrealizedPnl: 45.60,
+                    status: 'active'
+                }
+            ],
+            closedPositions: [
+                {
+                    id: 101,
+                    pair: 'BTC/USDT',
+                    size: 25000,
+                    longExchange: 'dYdX',
+                    shortExchange: 'OKX',
+                    duration: '12 days',
+                    fundingCollected: 320.00,
+                    realizedPnl: 285.50
+                },
+                {
+                    id: 102,
+                    pair: 'ETH/USDT',
+                    size: 15000,
+                    longExchange: 'Bybit',
+                    shortExchange: 'Binance',
+                    duration: '8 days',
+                    fundingCollected: 145.20,
+                    realizedPnl: 122.80
+                }
+            ],
+            historicalRates: {
+                BTC: {
+                    labels: ['Dec 23', 'Dec 24', 'Dec 25', 'Dec 26', 'Dec 27', 'Dec 28', 'Dec 29'],
+                    binance: [0.0080, 0.0095, 0.0120, 0.0100, 0.0085, 0.0110, 0.0100],
+                    bybit: [0.0070, 0.0082, 0.0105, 0.0088, 0.0075, 0.0095, 0.0080],
+                    dydx: [-0.0020, -0.0035, -0.0055, -0.0040, -0.0030, -0.0045, -0.0050]
+                },
+                ETH: {
+                    labels: ['Dec 23', 'Dec 24', 'Dec 25', 'Dec 26', 'Dec 27', 'Dec 28', 'Dec 29'],
+                    binance: [0.0100, 0.0115, 0.0140, 0.0125, 0.0110, 0.0130, 0.0120],
+                    bybit: [0.0085, 0.0098, 0.0120, 0.0105, 0.0092, 0.0108, 0.0095],
+                    dydx: [-0.0015, -0.0025, -0.0040, -0.0030, -0.0022, -0.0035, -0.0030]
+                },
+                SOL: {
+                    labels: ['Dec 23', 'Dec 24', 'Dec 25', 'Dec 26', 'Dec 27', 'Dec 28', 'Dec 29'],
+                    binance: [0.0200, 0.0280, 0.0350, 0.0300, 0.0220, 0.0280, 0.0250],
+                    bybit: [0.0150, 0.0220, 0.0290, 0.0240, 0.0170, 0.0210, 0.0180],
+                    dydx: [0.0050, 0.0080, 0.0120, 0.0090, 0.0060, 0.0085, 0.0070]
+                },
+                ARB: {
+                    labels: ['Dec 23', 'Dec 24', 'Dec 25', 'Dec 26', 'Dec 27', 'Dec 28', 'Dec 29'],
+                    binance: [0.0150, 0.0180, 0.0220, 0.0190, 0.0160, 0.0200, 0.0175],
+                    bybit: [0.0120, 0.0150, 0.0185, 0.0160, 0.0130, 0.0165, 0.0145],
+                    dydx: [0.0030, 0.0050, 0.0080, 0.0060, 0.0040, 0.0065, 0.0055]
+                }
+            }
+        };
+
+        // Chart instance
+        let fundingChart = null;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            renderFundingRates();
+            renderPositions();
+            renderClosedPositions();
+            updatePnLSummary();
+            initChart();
+            calculateArbitrage();
+            startCountdown();
+        });
+
+        // Render funding rates table
+        function renderFundingRates() {
+            const tbody = document.querySelector('#funding-table tbody');
+            tbody.innerHTML = mockData.fundingRates.map(item => {
+                const apr = (item.rate * 3 * 365).toFixed(2);
+                const rateClass = item.rate >= 0 ? 'positive' : 'negative';
+                const exchangeClass = `exchange-${item.exchange.toLowerCase()}`;
+                return `
+                    <tr>
+                        <td><span class="exchange-badge ${exchangeClass}">${item.exchange}</span></td>
+                        <td>${item.pair}</td>
+                        <td class="${rateClass}">${item.rate >= 0 ? '+' : ''}${item.rate.toFixed(4)}%</td>
+                        <td class="${item.predicted >= 0 ? 'positive' : 'negative'}">${item.predicted >= 0 ? '+' : ''}${item.predicted.toFixed(4)}%</td>
+                        <td class="${rateClass}">${apr}%</td>
+                        <td class="countdown" data-seconds="${item.nextFunding}">--:--:--</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // Render positions table
+        function renderPositions() {
+            const tbody = document.querySelector('#positions-table tbody');
+            tbody.innerHTML = mockData.positions.filter(p => p.status === 'active').map(pos => {
+                const pnlClass = pos.unrealizedPnl >= 0 ? 'positive' : 'negative';
+                return `
+                    <tr>
+                        <td>${pos.pair}</td>
+                        <td>$${pos.size.toLocaleString()}</td>
+                        <td><span class="exchange-badge exchange-${pos.longExchange.toLowerCase()}">${pos.longExchange}</span></td>
+                        <td><span class="exchange-badge exchange-${pos.shortExchange.toLowerCase()}">${pos.shortExchange}</span></td>
+                        <td>${pos.entryDate}</td>
+                        <td class="positive">+$${pos.fundingCollected.toFixed(2)}</td>
+                        <td class="${pnlClass}">${pos.unrealizedPnl >= 0 ? '+' : ''}$${pos.unrealizedPnl.toFixed(2)}</td>
+                        <td><span class="status-badge status-active">Active</span></td>
+                        <td><button class="btn btn-danger" onclick="closePosition(${pos.id})">Close</button></td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // Render closed positions
+        function renderClosedPositions() {
+            const tbody = document.querySelector('#closed-positions-table tbody');
+            tbody.innerHTML = mockData.closedPositions.map(pos => {
+                const pnlClass = pos.realizedPnl >= 0 ? 'positive' : 'negative';
+                return `
+                    <tr>
+                        <td>${pos.pair}</td>
+                        <td>$${pos.size.toLocaleString()}</td>
+                        <td><span class="exchange-badge exchange-${pos.longExchange.toLowerCase()}">${pos.longExchange}</span></td>
+                        <td><span class="exchange-badge exchange-${pos.shortExchange.toLowerCase()}">${pos.shortExchange}</span></td>
+                        <td>${pos.duration}</td>
+                        <td class="positive">+$${pos.fundingCollected.toFixed(2)}</td>
+                        <td class="${pnlClass}">${pos.realizedPnl >= 0 ? '+' : ''}$${pos.realizedPnl.toFixed(2)}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // Update P&L summary
+        function updatePnLSummary() {
+            const activePositions = mockData.positions.filter(p => p.status === 'active');
+
+            const unrealizedPnl = activePositions.reduce((sum, p) => sum + p.unrealizedPnl, 0);
+            const fundingCollected = activePositions.reduce((sum, p) => sum + p.fundingCollected, 0) +
+                                    mockData.closedPositions.reduce((sum, p) => sum + p.fundingCollected, 0);
+            const realizedPnl = mockData.closedPositions.reduce((sum, p) => sum + p.realizedPnl, 0);
+            const netPnl = unrealizedPnl + realizedPnl;
+
+            updatePnLCard('unrealized-pnl', unrealizedPnl);
+            updatePnLCard('realized-pnl', realizedPnl);
+            updatePnLCard('funding-collected', fundingCollected);
+            updatePnLCard('net-pnl', netPnl);
+        }
+
+        function updatePnLCard(id, value) {
+            const el = document.getElementById(id);
+            el.textContent = `${value >= 0 ? '+' : ''}$${value.toFixed(2)}`;
+            el.className = `value ${value >= 0 ? 'positive' : 'negative'}`;
+        }
+
+        // Arbitrage calculator
+        function calculateArbitrage() {
+            const size = parseFloat(document.getElementById('calc-size').value) || 0;
+            const leverage = parseFloat(document.getElementById('calc-leverage').value) || 1;
+            const longRate = parseFloat(document.getElementById('calc-long-rate').value) || 0;
+            const shortRate = parseFloat(document.getElementById('calc-short-rate').value) || 0;
+
+            // Spread is what we earn: we receive on short (positive rate) and pay on long (negative rate means we receive)
+            const spread = shortRate - longRate;
+            const effectiveSize = size * leverage;
+
+            const perFunding = (effectiveSize * spread) / 100;
+            const daily = perFunding * 3; // 3 funding periods per day
+            const weekly = daily * 7;
+            const monthly = daily * 30;
+            const apr = spread * 3 * 365; // Annualized
+
+            document.getElementById('calc-spread').textContent = `${spread.toFixed(4)}%`;
+            document.getElementById('calc-per-funding').textContent = `$${perFunding.toFixed(2)}`;
+            document.getElementById('calc-daily').textContent = `$${daily.toFixed(2)}`;
+            document.getElementById('calc-weekly').textContent = `$${weekly.toFixed(2)}`;
+            document.getElementById('calc-monthly').textContent = `$${monthly.toFixed(2)}`;
+            document.getElementById('calc-apr').textContent = `${apr.toFixed(2)}%`;
+
+            // Update colors
+            const isPositive = spread >= 0;
+            ['calc-spread', 'calc-per-funding', 'calc-daily', 'calc-weekly', 'calc-monthly', 'calc-apr'].forEach(id => {
+                document.getElementById(id).className = `value ${isPositive ? 'positive' : 'negative'}`;
+            });
+        }
+
+        // Close position (simulation)
+        function closePosition(id) {
+            const pos = mockData.positions.find(p => p.id === id);
+            if (pos) {
+                pos.status = 'closed';
+                const realized = pos.fundingCollected + pos.unrealizedPnl;
+                mockData.closedPositions.unshift({
+                    ...pos,
+                    duration: `${Math.floor((Date.now() - new Date(pos.entryDate).getTime()) / (1000 * 60 * 60 * 24))} days`,
+                    realizedPnl: realized
+                });
+                renderPositions();
+                renderClosedPositions();
+                updatePnLSummary();
+            }
+        }
+
+        // Initialize chart
+        function initChart() {
+            const ctx = document.getElementById('fundingChart').getContext('2d');
+            const data = mockData.historicalRates.BTC;
+
+            fundingChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: data.labels,
+                    datasets: [
+                        {
+                            label: 'Binance',
+                            data: data.binance,
+                            borderColor: '#f0b90b',
+                            backgroundColor: '#f0b90b22',
+                            tension: 0.3,
+                            fill: false
+                        },
+                        {
+                            label: 'Bybit',
+                            data: data.bybit,
+                            borderColor: '#f7a600',
+                            backgroundColor: '#f7a60022',
+                            tension: 0.3,
+                            fill: false
+                        },
+                        {
+                            label: 'dYdX',
+                            data: data.dydx,
+                            borderColor: '#6966ff',
+                            backgroundColor: '#6966ff22',
+                            tension: 0.3,
+                            fill: false
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: { color: '#8b949e' }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: (ctx) => `${ctx.dataset.label}: ${ctx.parsed.y.toFixed(4)}%`
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { color: '#30363d' },
+                            ticks: { color: '#8b949e' }
+                        },
+                        y: {
+                            grid: { color: '#30363d' },
+                            ticks: {
+                                color: '#8b949e',
+                                callback: (value) => `${value.toFixed(3)}%`
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Update chart with different pair
+        function updateChart(pair) {
+            const data = mockData.historicalRates[pair];
+            if (!data) return;
+
+            fundingChart.data.labels = data.labels;
+            fundingChart.data.datasets[0].data = data.binance;
+            fundingChart.data.datasets[1].data = data.bybit;
+            fundingChart.data.datasets[2].data = data.dydx;
+            fundingChart.update();
+
+            // Update active button
+            document.querySelectorAll('.chart-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.textContent === pair);
+            });
+        }
+
+        // Countdown timer
+        function startCountdown() {
+            setInterval(() => {
+                document.querySelectorAll('.countdown[data-seconds]').forEach(el => {
+                    let seconds = parseInt(el.dataset.seconds);
+                    if (seconds > 0) {
+                        seconds--;
+                        el.dataset.seconds = seconds;
+                        const h = Math.floor(seconds / 3600);
+                        const m = Math.floor((seconds % 3600) / 60);
+                        const s = seconds % 60;
+                        el.textContent = `${h}h ${m.toString().padStart(2, '0')}m ${s.toString().padStart(2, '0')}s`;
+                    }
+                });
+            }, 1000);
+        }
+
+        // Auto-update calculator on input change
+        document.querySelectorAll('#calc-size, #calc-leverage, #calc-long-rate, #calc-short-rate').forEach(el => {
+            el.addEventListener('input', calculateArbitrage);
+        });
+    </script>
+</body>
+</html>
