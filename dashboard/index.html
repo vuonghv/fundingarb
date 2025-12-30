@@ -586,6 +586,197 @@
             overflow-y: auto;
         }
 
+        /* Engine Status Grid */
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+            gap: 8px;
+        }
+
+        .status-item {
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            padding: 8px 10px;
+            text-align: center;
+        }
+
+        .status-label {
+            display: block;
+            color: var(--text-gray);
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+
+        .status-value {
+            display: block;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .status-error {
+            margin-top: 8px;
+            padding: 6px 10px;
+            background: rgba(255, 51, 51, 0.1);
+            border: 1px solid var(--negative);
+            color: var(--negative);
+            font-size: 10px;
+        }
+
+        .text-gray { color: var(--text-gray); }
+
+        /* Action Buttons Grid */
+        .action-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+        }
+
+        .btn-action {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            padding: 12px 8px;
+            font-family: var(--font-mono);
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            cursor: pointer;
+            border: 1px solid;
+            background: var(--bg-primary);
+            transition: all 0.15s ease;
+        }
+
+        .btn-icon {
+            font-size: 16px;
+        }
+
+        .btn-start {
+            color: var(--positive);
+            border-color: var(--positive);
+        }
+        .btn-start:hover {
+            background: var(--positive);
+            color: #000;
+        }
+
+        .btn-stop {
+            color: var(--bloomberg-amber);
+            border-color: var(--bloomberg-amber);
+        }
+        .btn-stop:hover {
+            background: var(--bloomberg-amber);
+            color: #000;
+        }
+
+        .btn-scan {
+            color: var(--neutral);
+            border-color: var(--neutral);
+        }
+        .btn-scan:hover {
+            background: var(--neutral);
+            color: #000;
+        }
+
+        .btn-kill {
+            color: var(--negative);
+            border-color: var(--negative);
+        }
+        .btn-kill:hover {
+            background: var(--negative);
+            color: #000;
+        }
+
+        /* Connection Status */
+        .status-disconnected {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            color: var(--negative);
+            font-size: 9px;
+            text-transform: uppercase;
+        }
+
+        .status-disconnected::before {
+            content: '';
+            width: 6px;
+            height: 6px;
+            background: var(--negative);
+            border-radius: 50%;
+        }
+
+        /* Notifications */
+        .notifications-container {
+            position: fixed;
+            top: 60px;
+            right: 10px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            max-width: 350px;
+        }
+
+        .notification {
+            padding: 10px 14px;
+            background: var(--bg-panel);
+            border: 1px solid var(--border-color);
+            font-size: 11px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+            animation: slideIn 0.3s ease;
+        }
+
+        .notification-info {
+            border-left: 3px solid var(--neutral);
+            color: var(--text-white);
+        }
+
+        .notification-warning {
+            border-left: 3px solid var(--bloomberg-amber);
+            color: var(--bloomberg-amber);
+        }
+
+        .notification-error {
+            border-left: 3px solid var(--negative);
+            color: var(--negative);
+        }
+
+        .notification-critical {
+            border-left: 3px solid var(--negative);
+            background: rgba(255, 51, 51, 0.2);
+            color: var(--negative);
+            animation: slideIn 0.3s ease, blink 0.5s infinite;
+        }
+
+        .notification.fade-out {
+            animation: fadeOut 0.3s ease forwards;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes fadeOut {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+        }
+
         /* Responsive */
         @media (max-width: 1024px) {
             .main-container {
@@ -621,7 +812,7 @@
             </div>
         </div>
         <div class="top-bar-right">
-            <span class="status-live">LIVE</span>
+            <span class="status-live" id="connection-status">LIVE</span>
             <span>NYC</span>
             <span class="clock" id="clock">00:00:00</span>
         </div>
@@ -851,7 +1042,69 @@
                 </table>
             </div>
         </div>
+
+        <!-- Engine Status Panel -->
+        <div class="panel">
+            <div class="panel-header">
+                <div class="panel-title">
+                    <span class="panel-number">7</span>
+                    <span class="panel-name">Engine Status</span>
+                </div>
+                <div class="panel-actions">
+                    <span class="panel-action" onclick="loadEngineStatus()">[REFRESH]</span>
+                </div>
+            </div>
+            <div class="panel-body" id="engine-status-panel">
+                <div class="status-grid">
+                    <div class="status-item">
+                        <span class="status-label">STATE</span>
+                        <span class="status-value text-gray">UNKNOWN</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">MODE</span>
+                        <span class="status-value amber">SIMULATION</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">KILL SWITCH</span>
+                        <span class="status-value positive">OFF</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Actions Panel -->
+        <div class="panel">
+            <div class="panel-header">
+                <div class="panel-title">
+                    <span class="panel-number">8</span>
+                    <span class="panel-name">Quick Actions</span>
+                </div>
+            </div>
+            <div class="panel-body">
+                <div class="action-grid">
+                    <button class="btn-action btn-start" onclick="startEngine()">
+                        <span class="btn-icon">▶</span>
+                        <span>START</span>
+                    </button>
+                    <button class="btn-action btn-stop" onclick="stopEngine()">
+                        <span class="btn-icon">■</span>
+                        <span>STOP</span>
+                    </button>
+                    <button class="btn-action btn-scan" onclick="forceScan()">
+                        <span class="btn-icon">⟳</span>
+                        <span>SCAN</span>
+                    </button>
+                    <button class="btn-action btn-kill" onclick="activateKillSwitch()">
+                        <span class="btn-icon">⚠</span>
+                        <span>KILL</span>
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
+
+    <!-- Notifications Container -->
+    <div id="notifications" class="notifications-container"></div>
 
     <!-- Function Keys -->
     <div class="function-bar">
@@ -868,7 +1121,204 @@
     </div>
 
     <script>
-        // Mock Data
+        // ============================================================
+        // Configuration
+        // ============================================================
+        const CONFIG = {
+            API_BASE_URL: window.location.protocol + '//' + window.location.hostname + ':8000',
+            WS_URL: 'ws://' + window.location.hostname + ':8000/ws',
+            RECONNECT_DELAY_MS: 1000,
+            MAX_RECONNECT_DELAY_MS: 30000,
+            REFRESH_INTERVAL_MS: 30000,
+        };
+
+        // ============================================================
+        // API Client
+        // ============================================================
+        class APIClient {
+            constructor(baseUrl) {
+                this.baseUrl = baseUrl;
+            }
+
+            async request(endpoint, options = {}) {
+                const url = `${this.baseUrl}${endpoint}`;
+                const response = await fetch(url, {
+                    headers: { 'Content-Type': 'application/json', ...options.headers },
+                    ...options
+                });
+                if (!response.ok) {
+                    throw new Error(`API Error: ${response.status} ${response.statusText}`);
+                }
+                return response.json();
+            }
+
+            // Health & Status
+            async getHealth() { return this.request('/api/health'); }
+            async getEngineStatus() { return this.request('/api/engine/status'); }
+            async getStats() { return this.request('/api/engine/stats'); }
+            async getRiskStatus() { return this.request('/api/engine/risk'); }
+
+            // Positions
+            async getOpenPositions() { return this.request('/api/positions/open'); }
+            async getClosedPositions(limit = 100) { return this.request(`/api/positions/closed?limit=${limit}`); }
+            async getPosition(id) { return this.request(`/api/positions/${id}`); }
+            async closePosition(id, reason = 'manual') {
+                return this.request(`/api/positions/${id}/close`, {
+                    method: 'POST',
+                    body: JSON.stringify({ reason })
+                });
+            }
+
+            // Engine Control
+            async startEngine() { return this.request('/api/engine/start', { method: 'POST' }); }
+            async stopEngine() { return this.request('/api/engine/stop', { method: 'POST' }); }
+            async activateKillSwitch(reason = 'manual') {
+                return this.request('/api/engine/kill', {
+                    method: 'POST',
+                    body: JSON.stringify({ confirm: true, reason })
+                });
+            }
+            async deactivateKillSwitch() { return this.request('/api/engine/kill/deactivate', { method: 'POST' }); }
+            async forceScan() { return this.request('/api/engine/scan', { method: 'POST' }); }
+
+            // Funding Rates & Opportunities
+            async getFundingRates() { return this.request('/api/engine/rates'); }
+            async getOpportunities() { return this.request('/api/engine/opportunities'); }
+
+            // Config
+            async getConfig() { return this.request('/api/config'); }
+        }
+
+        // ============================================================
+        // WebSocket Manager with Reconnection
+        // ============================================================
+        class WebSocketManager {
+            constructor(url, handlers) {
+                this.url = url;
+                this.handlers = handlers;
+                this.ws = null;
+                this.reconnectDelay = CONFIG.RECONNECT_DELAY_MS;
+                this.isConnected = false;
+                this.reconnectTimer = null;
+            }
+
+            connect() {
+                if (this.ws && (this.ws.readyState === WebSocket.CONNECTING || this.ws.readyState === WebSocket.OPEN)) {
+                    return;
+                }
+
+                console.log('[WS] Connecting to', this.url);
+                this.ws = new WebSocket(this.url);
+
+                this.ws.onopen = () => {
+                    console.log('[WS] Connected');
+                    this.isConnected = true;
+                    this.reconnectDelay = CONFIG.RECONNECT_DELAY_MS;
+                    this.updateConnectionStatus(true);
+                    if (this.handlers.onConnect) this.handlers.onConnect();
+                };
+
+                this.ws.onclose = (event) => {
+                    console.log('[WS] Disconnected:', event.code, event.reason);
+                    this.isConnected = false;
+                    this.updateConnectionStatus(false);
+                    this.scheduleReconnect();
+                    if (this.handlers.onDisconnect) this.handlers.onDisconnect();
+                };
+
+                this.ws.onerror = (error) => {
+                    console.error('[WS] Error:', error);
+                };
+
+                this.ws.onmessage = (event) => {
+                    try {
+                        const data = JSON.parse(event.data);
+                        this.handleMessage(data);
+                    } catch (e) {
+                        console.error('[WS] Failed to parse message:', e);
+                    }
+                };
+            }
+
+            handleMessage(data) {
+                const { event, payload, timestamp } = data;
+                console.log('[WS] Event:', event, payload);
+
+                switch (event) {
+                    case 'POSITION_UPDATE':
+                        if (this.handlers.onPositionUpdate) this.handlers.onPositionUpdate(payload);
+                        break;
+                    case 'FUNDING_RATE_UPDATE':
+                        if (this.handlers.onFundingRateUpdate) this.handlers.onFundingRateUpdate(payload);
+                        break;
+                    case 'TRADE_EXECUTED':
+                        if (this.handlers.onTradeExecuted) this.handlers.onTradeExecuted(payload);
+                        break;
+                    case 'ENGINE_STATUS':
+                        if (this.handlers.onEngineStatus) this.handlers.onEngineStatus(payload);
+                        break;
+                    case 'ALERT':
+                        if (this.handlers.onAlert) this.handlers.onAlert(payload);
+                        break;
+                    case 'OPPORTUNITY':
+                        if (this.handlers.onOpportunity) this.handlers.onOpportunity(payload);
+                        break;
+                    default:
+                        console.log('[WS] Unknown event:', event);
+                }
+            }
+
+            scheduleReconnect() {
+                if (this.reconnectTimer) return;
+
+                console.log(`[WS] Reconnecting in ${this.reconnectDelay}ms...`);
+                this.reconnectTimer = setTimeout(() => {
+                    this.reconnectTimer = null;
+                    this.connect();
+                }, this.reconnectDelay);
+
+                // Exponential backoff
+                this.reconnectDelay = Math.min(this.reconnectDelay * 2, CONFIG.MAX_RECONNECT_DELAY_MS);
+            }
+
+            updateConnectionStatus(connected) {
+                const statusEl = document.getElementById('connection-status');
+                if (statusEl) {
+                    statusEl.className = connected ? 'status-live' : 'status-disconnected';
+                    statusEl.innerHTML = connected ? 'LIVE' : 'OFFLINE';
+                }
+            }
+
+            disconnect() {
+                if (this.reconnectTimer) {
+                    clearTimeout(this.reconnectTimer);
+                    this.reconnectTimer = null;
+                }
+                if (this.ws) {
+                    this.ws.close();
+                    this.ws = null;
+                }
+            }
+        }
+
+        // ============================================================
+        // Application State
+        // ============================================================
+        const api = new APIClient(CONFIG.API_BASE_URL);
+        let wsManager = null;
+
+        // Current data (updated via API/WS)
+        const appState = {
+            engineStatus: null,
+            positions: [],
+            closedPositions: [],
+            fundingRates: [],
+            opportunities: [],
+            stats: null,
+            connected: false,
+        };
+
+        // Mock data for fallback/demo mode
         const mockData = {
             fundingRates: [
                 { exchange: 'Binance', pair: 'BTC/USDT', rate: 0.0100, predicted: 0.0085, nextFunding: 14520 },
@@ -920,9 +1370,162 @@
         };
 
         let fundingChart = null;
+        let useMockData = false;
 
+        // ============================================================
+        // Data Loading Functions
+        // ============================================================
+        async function loadAllData() {
+            try {
+                await Promise.all([
+                    loadEngineStatus(),
+                    loadPositions(),
+                    loadStats(),
+                ]);
+                useMockData = false;
+            } catch (error) {
+                console.warn('[API] Failed to load data, using mock data:', error);
+                useMockData = true;
+                // Use mock data
+                appState.positions = mockData.positions.filter(p => p.status === 'active');
+                appState.closedPositions = mockData.closedPositions;
+                appState.fundingRates = mockData.fundingRates;
+            }
+        }
+
+        async function loadEngineStatus() {
+            try {
+                appState.engineStatus = await api.getEngineStatus();
+                renderEngineStatus();
+            } catch (e) {
+                console.warn('[API] Failed to load engine status:', e);
+            }
+        }
+
+        async function loadPositions() {
+            try {
+                const [open, closed] = await Promise.all([
+                    api.getOpenPositions(),
+                    api.getClosedPositions(50)
+                ]);
+                appState.positions = open;
+                appState.closedPositions = closed;
+            } catch (e) {
+                console.warn('[API] Failed to load positions:', e);
+                throw e;
+            }
+        }
+
+        async function loadStats() {
+            try {
+                appState.stats = await api.getStats();
+            } catch (e) {
+                console.warn('[API] Failed to load stats:', e);
+            }
+        }
+
+        // ============================================================
+        // WebSocket Event Handlers
+        // ============================================================
+        const wsHandlers = {
+            onConnect: () => {
+                appState.connected = true;
+                loadAllData();
+            },
+            onDisconnect: () => {
+                appState.connected = false;
+            },
+            onPositionUpdate: (payload) => {
+                // Update position in state
+                const idx = appState.positions.findIndex(p => p.id === payload.id);
+                if (idx >= 0) {
+                    if (payload.status === 'closed' || payload.status === 'CLOSED') {
+                        appState.positions.splice(idx, 1);
+                        appState.closedPositions.unshift(payload);
+                    } else {
+                        appState.positions[idx] = payload;
+                    }
+                } else if (payload.status === 'open' || payload.status === 'OPEN') {
+                    appState.positions.push(payload);
+                }
+                renderPositions();
+                renderClosedPositions();
+                updatePnLSummary();
+            },
+            onFundingRateUpdate: (payload) => {
+                // Update or add funding rate
+                const idx = appState.fundingRates.findIndex(
+                    r => r.exchange === payload.exchange && r.pair === payload.symbol
+                );
+                const rate = {
+                    exchange: payload.exchange,
+                    pair: payload.symbol,
+                    rate: payload.rate * 100,
+                    predicted: payload.predicted_rate ? payload.predicted_rate * 100 : null,
+                    nextFunding: payload.next_funding_time ?
+                        Math.floor((new Date(payload.next_funding_time) - Date.now()) / 1000) : 0
+                };
+                if (idx >= 0) {
+                    appState.fundingRates[idx] = rate;
+                } else {
+                    appState.fundingRates.push(rate);
+                }
+                renderFundingRates();
+            },
+            onTradeExecuted: (payload) => {
+                showNotification(`Trade executed: ${payload.side} ${payload.size} ${payload.pair} on ${payload.exchange}`, 'info');
+                loadPositions().then(() => {
+                    renderPositions();
+                    renderClosedPositions();
+                    updatePnLSummary();
+                });
+            },
+            onEngineStatus: (payload) => {
+                appState.engineStatus = payload;
+                renderEngineStatus();
+            },
+            onAlert: (payload) => {
+                showNotification(payload.message, payload.severity || 'info');
+            },
+            onOpportunity: (payload) => {
+                const idx = appState.opportunities.findIndex(
+                    o => o.pair === payload.pair &&
+                         o.long_exchange === payload.long_exchange &&
+                         o.short_exchange === payload.short_exchange
+                );
+                if (idx >= 0) {
+                    appState.opportunities[idx] = payload;
+                } else {
+                    appState.opportunities.unshift(payload);
+                    if (appState.opportunities.length > 20) appState.opportunities.pop();
+                }
+                renderOpportunities();
+            }
+        };
+
+        // ============================================================
+        // Notification System
+        // ============================================================
+        function showNotification(message, type = 'info') {
+            const container = document.getElementById('notifications');
+            if (!container) return;
+
+            const notification = document.createElement('div');
+            notification.className = `notification notification-${type}`;
+            notification.textContent = message;
+            container.appendChild(notification);
+
+            setTimeout(() => {
+                notification.classList.add('fade-out');
+                setTimeout(() => notification.remove(), 300);
+            }, 5000);
+        }
+
+        // ============================================================
         // Initialize
-        document.addEventListener('DOMContentLoaded', () => {
+        // ============================================================
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Initial UI setup with mock data
             renderFundingRates();
             renderPositions();
             renderClosedPositions();
@@ -932,6 +1535,29 @@
             startCountdown();
             startClock();
             initTicker();
+            renderEngineStatus();
+
+            // Try to connect to backend
+            wsManager = new WebSocketManager(CONFIG.WS_URL, wsHandlers);
+            wsManager.connect();
+
+            // Also try direct API load
+            await loadAllData();
+            renderFundingRates();
+            renderPositions();
+            renderClosedPositions();
+            updatePnLSummary();
+
+            // Periodic refresh
+            setInterval(async () => {
+                if (!useMockData) {
+                    await loadAllData();
+                    renderFundingRates();
+                    renderPositions();
+                    renderClosedPositions();
+                    updatePnLSummary();
+                }
+            }, CONFIG.REFRESH_INTERVAL_MS);
         });
 
         // Clock
@@ -969,7 +1595,8 @@
         // Render funding rates
         function renderFundingRates() {
             const tbody = document.querySelector('#funding-table tbody');
-            tbody.innerHTML = mockData.fundingRates.map(item => {
+            const rates = useMockData ? mockData.fundingRates : (appState.fundingRates.length ? appState.fundingRates : mockData.fundingRates);
+            tbody.innerHTML = rates.map(item => {
                 const apr = (item.rate * 3 * 365).toFixed(1);
                 const rateClass = item.rate >= 0 ? 'positive' : 'negative';
                 const tagClass = `tag-${item.exchange.toLowerCase()}`;
@@ -989,18 +1616,36 @@
         // Render positions
         function renderPositions() {
             const tbody = document.querySelector('#positions-table tbody');
-            tbody.innerHTML = mockData.positions.filter(p => p.status === 'active').map(pos => {
-                const pnlClass = pos.unrealizedPnl >= 0 ? 'positive' : 'negative';
+            let positions;
+            if (useMockData) {
+                positions = mockData.positions.filter(p => p.status === 'active');
+            } else {
+                positions = appState.positions.length ? appState.positions : mockData.positions.filter(p => p.status === 'active');
+            }
+
+            tbody.innerHTML = positions.map(pos => {
+                // Handle both API format and mock format
+                const pair = pos.pair;
+                const size = pos.size_usd || pos.size || 0;
+                const longExchange = pos.long_exchange || pos.longExchange || '';
+                const shortExchange = pos.short_exchange || pos.shortExchange || '';
+                const entryDate = pos.entry_timestamp || pos.entryDate || '';
+                const fundingCollected = pos.funding_collected || pos.fundingCollected || 0;
+                const unrealizedPnl = pos.unrealized_pnl || pos.unrealizedPnl || 0;
+
+                const pnlClass = unrealizedPnl >= 0 ? 'positive' : 'negative';
+                const entryStr = typeof entryDate === 'string' ? entryDate.substring(5, 10) : new Date(entryDate).toLocaleDateString().substring(0, 5);
+
                 return `
                     <tr>
-                        <td class="amber">${pos.pair}</td>
-                        <td>$${(pos.size/1000).toFixed(0)}K</td>
-                        <td><span class="exchange-tag tag-${pos.longExchange.toLowerCase()}">${pos.longExchange.substring(0,3).toUpperCase()}</span></td>
-                        <td><span class="exchange-tag tag-${pos.shortExchange.toLowerCase()}">${pos.shortExchange.substring(0,3).toUpperCase()}</span></td>
-                        <td>${pos.entryDate.substring(5)}</td>
-                        <td class="positive">+$${pos.fundingCollected.toFixed(0)}</td>
-                        <td class="${pnlClass}">${pos.unrealizedPnl >= 0 ? '+' : ''}$${pos.unrealizedPnl.toFixed(0)}</td>
-                        <td><button class="btn-close" onclick="closePosition(${pos.id})">CLOSE</button></td>
+                        <td class="amber">${pair}</td>
+                        <td>$${(size/1000).toFixed(0)}K</td>
+                        <td><span class="exchange-tag tag-${longExchange.toLowerCase()}">${longExchange.substring(0,3).toUpperCase()}</span></td>
+                        <td><span class="exchange-tag tag-${shortExchange.toLowerCase()}">${shortExchange.substring(0,3).toUpperCase()}</span></td>
+                        <td>${entryStr}</td>
+                        <td class="positive">+$${fundingCollected.toFixed(0)}</td>
+                        <td class="${pnlClass}">${unrealizedPnl >= 0 ? '+' : ''}$${unrealizedPnl.toFixed(0)}</td>
+                        <td><button class="btn-close" onclick="closePosition('${pos.id}')">CLOSE</button></td>
                     </tr>
                 `;
             }).join('');
@@ -1009,17 +1654,41 @@
         // Render closed positions
         function renderClosedPositions() {
             const tbody = document.querySelector('#closed-positions-table tbody');
-            tbody.innerHTML = mockData.closedPositions.map(pos => {
-                const pnlClass = pos.realizedPnl >= 0 ? 'positive' : 'negative';
+            let positions;
+            if (useMockData) {
+                positions = mockData.closedPositions;
+            } else {
+                positions = appState.closedPositions.length ? appState.closedPositions : mockData.closedPositions;
+            }
+
+            tbody.innerHTML = positions.slice(0, 20).map(pos => {
+                // Handle both API format and mock format
+                const pair = pos.pair;
+                const size = pos.size_usd || pos.size || 0;
+                const longExchange = pos.long_exchange || pos.longExchange || '';
+                const shortExchange = pos.short_exchange || pos.shortExchange || '';
+                const fundingCollected = pos.funding_collected || pos.fundingCollected || 0;
+                const realizedPnl = pos.realized_pnl || pos.realizedPnl || 0;
+
+                // Calculate duration
+                let duration = pos.duration || '';
+                if (!duration && pos.entry_timestamp && pos.close_timestamp) {
+                    const entryDate = new Date(pos.entry_timestamp);
+                    const closeDate = new Date(pos.close_timestamp);
+                    const days = Math.floor((closeDate - entryDate) / (1000 * 60 * 60 * 24));
+                    duration = `${days}d`;
+                }
+
+                const pnlClass = realizedPnl >= 0 ? 'positive' : 'negative';
                 return `
                     <tr>
-                        <td class="amber">${pos.pair}</td>
-                        <td>$${(pos.size/1000).toFixed(0)}K</td>
-                        <td><span class="exchange-tag tag-${pos.longExchange.toLowerCase()}">${pos.longExchange.substring(0,3).toUpperCase()}</span></td>
-                        <td><span class="exchange-tag tag-${pos.shortExchange.toLowerCase()}">${pos.shortExchange.substring(0,3).toUpperCase()}</span></td>
-                        <td>${pos.duration}</td>
-                        <td class="positive">+$${pos.fundingCollected.toFixed(0)}</td>
-                        <td class="${pnlClass}">${pos.realizedPnl >= 0 ? '+' : ''}$${pos.realizedPnl.toFixed(0)}</td>
+                        <td class="amber">${pair}</td>
+                        <td>$${(size/1000).toFixed(0)}K</td>
+                        <td><span class="exchange-tag tag-${longExchange.toLowerCase()}">${longExchange.substring(0,3).toUpperCase()}</span></td>
+                        <td><span class="exchange-tag tag-${shortExchange.toLowerCase()}">${shortExchange.substring(0,3).toUpperCase()}</span></td>
+                        <td>${duration}</td>
+                        <td class="positive">+$${fundingCollected.toFixed(0)}</td>
+                        <td class="${pnlClass}">${realizedPnl >= 0 ? '+' : ''}$${realizedPnl.toFixed(0)}</td>
                     </tr>
                 `;
             }).join('');
@@ -1027,11 +1696,29 @@
 
         // Update P&L summary
         function updatePnLSummary() {
-            const activePositions = mockData.positions.filter(p => p.status === 'active');
-            const unrealizedPnl = activePositions.reduce((sum, p) => sum + p.unrealizedPnl, 0);
-            const fundingCollected = activePositions.reduce((sum, p) => sum + p.fundingCollected, 0) +
-                                    mockData.closedPositions.reduce((sum, p) => sum + p.fundingCollected, 0);
-            const realizedPnl = mockData.closedPositions.reduce((sum, p) => sum + p.realizedPnl, 0);
+            let unrealizedPnl, realizedPnl, fundingCollected;
+
+            if (useMockData) {
+                const activePositions = mockData.positions.filter(p => p.status === 'active');
+                unrealizedPnl = activePositions.reduce((sum, p) => sum + p.unrealizedPnl, 0);
+                fundingCollected = activePositions.reduce((sum, p) => sum + p.fundingCollected, 0) +
+                                  mockData.closedPositions.reduce((sum, p) => sum + p.fundingCollected, 0);
+                realizedPnl = mockData.closedPositions.reduce((sum, p) => sum + p.realizedPnl, 0);
+            } else if (appState.stats) {
+                unrealizedPnl = 0; // Would need to calculate from positions
+                realizedPnl = appState.stats.total_realized_pnl || 0;
+                fundingCollected = appState.stats.total_funding_collected || 0;
+                // Calculate unrealized from positions
+                unrealizedPnl = appState.positions.reduce((sum, p) => sum + (p.unrealized_pnl || 0), 0);
+            } else {
+                const activePositions = appState.positions.length ? appState.positions : mockData.positions.filter(p => p.status === 'active');
+                const closedPositions = appState.closedPositions.length ? appState.closedPositions : mockData.closedPositions;
+                unrealizedPnl = activePositions.reduce((sum, p) => sum + (p.unrealized_pnl || p.unrealizedPnl || 0), 0);
+                fundingCollected = activePositions.reduce((sum, p) => sum + (p.funding_collected || p.fundingCollected || 0), 0) +
+                                  closedPositions.reduce((sum, p) => sum + (p.funding_collected || p.fundingCollected || 0), 0);
+                realizedPnl = closedPositions.reduce((sum, p) => sum + (p.realized_pnl || p.realizedPnl || 0), 0);
+            }
+
             const netPnl = unrealizedPnl + realizedPnl;
 
             updatePnLCard('unrealized-pnl', unrealizedPnl);
@@ -1083,20 +1770,172 @@
         }
 
         // Close position
-        function closePosition(id) {
-            const pos = mockData.positions.find(p => p.id === id);
-            if (pos) {
-                pos.status = 'closed';
-                const realized = pos.fundingCollected + pos.unrealizedPnl;
-                mockData.closedPositions.unshift({
-                    ...pos,
-                    duration: `${Math.floor((Date.now() - new Date(pos.entryDate).getTime()) / (1000 * 60 * 60 * 24))}d`,
-                    realizedPnl: realized
-                });
-                renderPositions();
-                renderClosedPositions();
-                updatePnLSummary();
+        async function closePosition(id) {
+            if (useMockData) {
+                const pos = mockData.positions.find(p => p.id === parseInt(id));
+                if (pos) {
+                    pos.status = 'closed';
+                    const realized = pos.fundingCollected + pos.unrealizedPnl;
+                    mockData.closedPositions.unshift({
+                        ...pos,
+                        duration: `${Math.floor((Date.now() - new Date(pos.entryDate).getTime()) / (1000 * 60 * 60 * 24))}d`,
+                        realizedPnl: realized
+                    });
+                    renderPositions();
+                    renderClosedPositions();
+                    updatePnLSummary();
+                }
+            } else {
+                try {
+                    if (!confirm('Are you sure you want to close this position?')) return;
+                    await api.closePosition(id, 'manual');
+                    showNotification('Position close request sent', 'info');
+                    await loadPositions();
+                    renderPositions();
+                    renderClosedPositions();
+                    updatePnLSummary();
+                } catch (error) {
+                    showNotification(`Failed to close position: ${error.message}`, 'error');
+                    console.error('Failed to close position:', error);
+                }
             }
+        }
+
+        // ============================================================
+        // Engine Control Functions
+        // ============================================================
+        async function startEngine() {
+            try {
+                await api.startEngine();
+                showNotification('Engine start request sent', 'info');
+                await loadEngineStatus();
+            } catch (error) {
+                showNotification(`Failed to start engine: ${error.message}`, 'error');
+            }
+        }
+
+        async function stopEngine() {
+            try {
+                await api.stopEngine();
+                showNotification('Engine stop request sent', 'info');
+                await loadEngineStatus();
+            } catch (error) {
+                showNotification(`Failed to stop engine: ${error.message}`, 'error');
+            }
+        }
+
+        async function activateKillSwitch() {
+            if (!confirm('DANGER: This will close ALL positions and halt trading. Are you absolutely sure?')) return;
+            if (!confirm('FINAL WARNING: This action cannot be undone automatically. Confirm kill switch activation?')) return;
+
+            try {
+                await api.activateKillSwitch('manual_dashboard');
+                showNotification('KILL SWITCH ACTIVATED', 'critical');
+                await loadEngineStatus();
+            } catch (error) {
+                showNotification(`Failed to activate kill switch: ${error.message}`, 'error');
+            }
+        }
+
+        async function forceScan() {
+            try {
+                await api.forceScan();
+                showNotification('Scan triggered', 'info');
+            } catch (error) {
+                showNotification(`Failed to trigger scan: ${error.message}`, 'error');
+            }
+        }
+
+        // ============================================================
+        // Render Engine Status
+        // ============================================================
+        function renderEngineStatus() {
+            const statusEl = document.getElementById('engine-status-panel');
+            if (!statusEl) return;
+
+            const status = appState.engineStatus || {
+                state: 'UNKNOWN',
+                simulation_mode: true,
+                connected_exchanges: [],
+                monitored_symbols: [],
+                open_positions: 0,
+                pending_orders: 0,
+                kill_switch_active: false,
+                error_message: null
+            };
+
+            const stateClass = {
+                'RUNNING': 'positive',
+                'STOPPED': 'negative',
+                'STARTING': 'amber',
+                'STOPPING': 'amber',
+                'ERROR': 'negative',
+                'UNKNOWN': 'text-gray'
+            }[status.state] || 'text-gray';
+
+            const killSwitchClass = status.kill_switch_active ? 'negative blink' : 'positive';
+
+            statusEl.innerHTML = `
+                <div class="status-grid">
+                    <div class="status-item">
+                        <span class="status-label">STATE</span>
+                        <span class="status-value ${stateClass}">${status.state}</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">MODE</span>
+                        <span class="status-value ${status.simulation_mode ? 'amber' : 'positive'}">${status.simulation_mode ? 'SIMULATION' : 'LIVE'}</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">KILL SWITCH</span>
+                        <span class="status-value ${killSwitchClass}">${status.kill_switch_active ? 'ACTIVE' : 'OFF'}</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">EXCHANGES</span>
+                        <span class="status-value">${(status.connected_exchanges || []).length}</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">SYMBOLS</span>
+                        <span class="status-value">${(status.monitored_symbols || []).length}</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">POSITIONS</span>
+                        <span class="status-value">${status.open_positions || 0}</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">PENDING</span>
+                        <span class="status-value">${status.pending_orders || 0}</span>
+                    </div>
+                </div>
+                ${status.error_message ? `<div class="status-error">${status.error_message}</div>` : ''}
+            `;
+        }
+
+        // ============================================================
+        // Render Opportunities
+        // ============================================================
+        function renderOpportunities() {
+            const tbody = document.querySelector('#opportunities-table tbody');
+            if (!tbody) return;
+
+            if (appState.opportunities.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-gray">No opportunities detected</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = appState.opportunities.slice(0, 10).map(opp => {
+                const spreadPct = (opp.spread * 100).toFixed(4);
+                const apr = (opp.spread * 3 * 365 * 100).toFixed(1);
+                return `
+                    <tr>
+                        <td class="amber">${opp.pair || opp.symbol}</td>
+                        <td><span class="exchange-tag tag-${(opp.long_exchange || '').toLowerCase()}">${(opp.long_exchange || '').substring(0,3).toUpperCase()}</span></td>
+                        <td><span class="exchange-tag tag-${(opp.short_exchange || '').toLowerCase()}">${(opp.short_exchange || '').substring(0,3).toUpperCase()}</span></td>
+                        <td class="positive">+${spreadPct}%</td>
+                        <td class="positive">${apr}%</td>
+                        <td class="${opp.recommended_size ? '' : 'text-gray'}">${opp.recommended_size ? `$${(opp.recommended_size/1000).toFixed(0)}K` : '-'}</td>
+                    </tr>
+                `;
+            }).join('');
         }
 
         // Chart

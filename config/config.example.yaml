@@ -1,0 +1,81 @@
+# Funding Rate Arbitrage Configuration
+# Copy this file to config/config.yaml and fill in your values
+
+# Exchange API credentials
+exchanges:
+  binance:
+    api_key: "your-binance-api-key"
+    api_secret: "your-binance-api-secret"
+    testnet: true  # Use testnet for simulation mode
+
+  bybit:
+    api_key: "your-bybit-api-key"
+    api_secret: "your-bybit-api-secret"
+    testnet: true
+
+# Trading strategy settings
+trading:
+  # Symbols to monitor (ccxt unified format)
+  symbols:
+    - "BTC/USDT:USDT"
+    - "ETH/USDT:USDT"
+    - "SOL/USDT:USDT"
+
+  # Spread threshold: base + per_10k * (size / 10000)
+  min_spread_base: 0.0001      # 0.01%
+  min_spread_per_10k: 0.00001  # 0.001% per $10k
+
+  # Entry timing (minutes before funding)
+  entry_buffer_minutes: 20
+
+  # Order execution timeout (seconds)
+  order_fill_timeout_seconds: 30
+
+  # Maximum position size per pair (USD)
+  max_position_per_pair_usd: 50000
+
+  # Negative spread tolerance before closing
+  negative_spread_tolerance: -0.0001  # -0.01%
+
+  # Leverage settings per exchange
+  leverage:
+    binance:
+      default: 5
+      overrides:
+        "BTC/USDT:USDT": 3
+        "ETH/USDT:USDT": 5
+    bybit:
+      default: 5
+
+  # Simulation mode (REQUIRED before live trading)
+  simulation_mode: true
+  min_simulation_hours: 24
+
+# Database settings
+database:
+  driver: sqlite  # sqlite or postgresql
+  sqlite_path: data/fundingarb.db
+
+  # PostgreSQL settings (if driver: postgresql)
+  # host: localhost
+  # port: 5432
+  # database: fundingarb
+  # username: your_username
+  # password: your_password
+
+# Telegram alerts
+telegram:
+  enabled: false
+  bot_token: "your-telegram-bot-token"
+  chat_id: "your-chat-id"
+  send_info: true
+  send_warning: true
+  send_critical: true
+
+# API server settings
+api:
+  host: "0.0.0.0"
+  port: 8000
+  cors_origins:
+    - "*"
+  ws_heartbeat_interval: 30

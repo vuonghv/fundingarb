@@ -1,0 +1,88 @@
+version: '3.8'
+
+services:
+  # ==========================================================
+  # Main Application
+  # ==========================================================
+  app:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      target: production
+    container_name: fundingarb-app
+    restart: unless-stopped
+    ports:
+      - "${API_PORT:-8000}:8000"
+    environment:
+      - FUNDINGARB_CONFIG_PATH=/app/config/config.yaml
+      - FUNDINGARB_DB_URL=postgresql+asyncpg://fundingarb:${POSTGRES_PASSWORD:-changeme}@db:5432/fundingarb
+      - FUNDINGARB_SIMULATION_MODE=${SIMULATION_MODE:-true}
+      - PYTHONPATH=/app
+    volumes:
+      - ../config:/app/config:ro
+      - app-data:/app/data
+      - app-logs:/app/logs
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - fundingarb-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # ==========================================================
+  # PostgreSQL Database
+  # ==========================================================
+  db:
+    image: postgres:16-alpine
+    container_name: fundingarb-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: fundingarb
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+      POSTGRES_DB: fundingarb
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    networks:
+      - fundingarb-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fundingarb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ==========================================================
+  # Dashboard Static Server (optional)
+  # ==========================================================
+  dashboard:
+    image: nginx:alpine
+    container_name: fundingarb-dashboard
+    restart: unless-stopped
+    ports:
+      - "${DASHBOARD_PORT:-8080}:80"
+    volumes:
+      - ../dashboard:/usr/share/nginx/html:ro
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    networks:
+      - fundingarb-network
+    depends_on:
+      - app
+
+volumes:
+  postgres-data:
+    name: fundingarb-postgres-data
+  app-data:
+    name: fundingarb-app-data
+  app-logs:
+    name: fundingarb-app-logs
+
+networks:
+  fundingarb-network:
+    name: fundingarb-network
+    driver: bridge
