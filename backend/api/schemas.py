@@ -183,6 +183,7 @@ class ConfigUpdateRequest(BaseModel):
 class ConfigResponse(BaseModel):
     """Current configuration (sanitized)."""
     symbols: List[str]
+    exchanges: List[str] = []
     min_spread_base: float
     min_spread_per_10k: float
     entry_buffer_minutes: int

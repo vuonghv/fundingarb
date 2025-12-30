@@ -3,7 +3,7 @@ Configuration API routes.
 """
 
 from typing import Optional
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 
 from ..schemas import ConfigUpdateRequest, ConfigResponse
 
@@ -11,23 +11,40 @@ router = APIRouter()
 
 
 @router.get("", response_model=ConfigResponse)
-async def get_config():
+async def get_config(request: Request):
     """
     Get current configuration.
 
     Returns sanitized configuration (no secrets).
     """
-    # This needs to be wired to the actual config
+    config = request.app.state.config
+
+    if not config:
+        return ConfigResponse(
+            symbols=["BTC/USDT:USDT", "ETH/USDT:USDT"],
+            exchanges=[],
+            min_spread_base=0.0001,
+            min_spread_per_10k=0.00001,
+            entry_buffer_minutes=20,
+            order_fill_timeout_seconds=30,
+            max_position_per_pair_usd=50000.0,
+            negative_spread_tolerance=-0.0001,
+            leverage={},
+            simulation_mode=True,
+        )
+
+    trading = config.trading
     return ConfigResponse(
-        symbols=["BTC/USDT:USDT", "ETH/USDT:USDT"],
-        min_spread_base=0.0001,
-        min_spread_per_10k=0.00001,
-        entry_buffer_minutes=20,
-        order_fill_timeout_seconds=30,
-        max_position_per_pair_usd=50000.0,
-        negative_spread_tolerance=-0.0001,
+        symbols=trading.symbols if trading else [],
+        exchanges=list(config.exchanges.keys()) if config.exchanges else [],
+        min_spread_base=trading.min_spread_base if trading else 0.0001,
+        min_spread_per_10k=trading.min_spread_per_10k if trading else 0.00001,
+        entry_buffer_minutes=trading.entry_buffer_minutes if trading else 20,
+        order_fill_timeout_seconds=trading.order_fill_timeout_seconds if trading else 30,
+        max_position_per_pair_usd=trading.max_position_per_pair_usd if trading else 50000.0,
+        negative_spread_tolerance=trading.negative_spread_tolerance if trading else -0.0001,
         leverage={},
-        simulation_mode=True,
+        simulation_mode=trading.simulation_mode if trading else True,
     )
 
 

@@ -268,6 +268,11 @@ async def test_app(mock_config: Config):
         exchanges={},
     )
 
+    # Manually set app.state since lifespan events may not run in tests
+    app.state.config = mock_config
+    app.state.coordinator = None
+    app.state.exchanges = {}
+
     yield app
 
     # Cleanup

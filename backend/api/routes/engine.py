@@ -2,7 +2,7 @@
 Trading engine control API routes.
 """
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 
 from ..schemas import (
     EngineStatusResponse,
@@ -163,14 +163,70 @@ async def get_trading_stats():
 
 
 @router.get("/rates", response_model=dict)
-async def get_funding_rates():
+async def get_funding_rates(request: Request):
     """
     Get current funding rates from all exchanges.
 
     Returns the latest funding rates being monitored.
     """
-    # This needs the scanner to be wired
-    return {"rates": {}, "message": "Requires scanner integration"}
+    from datetime import datetime, timezone
+
+    config = getattr(request.app.state, 'config', None)
+    exchanges = getattr(request.app.state, 'exchanges', {})
+
+    if not exchanges:
+        return {"rates": [], "message": "No exchanges connected"}
+
+    # Get symbols from config
+    symbols = []
+    if config and config.trading:
+        symbols = config.trading.symbols
+
+    if not symbols:
+        symbols = ["BTC/USDT:USDT", "ETH/USDT:USDT", "SOL/USDT:USDT"]
+
+    rates = []
+
+    # Fetch rates from each exchange
+    for exchange_name, exchange in exchanges.items():
+        try:
+            exchange_rates = await exchange.get_funding_rates(symbols)
+            for symbol, rate in exchange_rates.items():
+                # Calculate time to next funding in seconds
+                next_funding_seconds = 0
+                if rate.next_funding_time:
+                    delta = rate.next_funding_time - datetime.now(timezone.utc)
+                    next_funding_seconds = max(0, int(delta.total_seconds()))
+
+                # Format pair for display (e.g., "BTC/USDT:USDT" -> "BTC/USDT")
+                display_pair = symbol.split(":")[0] if ":" in symbol else symbol
+
+                # Rate is already a decimal like 0.0001 (= 0.01%)
+                # Frontend expects percentage value for display (0.01 shows as "0.0100%")
+                rate_pct = float(rate.rate_percent)
+
+                # Use predicted_rate if available and valid, otherwise use current rate
+                # Note: predicted_rate might be None or incorrectly set to mark price
+                predicted_pct = rate_pct
+                if rate.predicted_rate is not None and rate.predicted_rate != 0:
+                    # Only use if it looks like a valid funding rate (small value)
+                    pred_val = float(rate.predicted_rate)
+                    if abs(pred_val) < 1:  # Valid funding rates are < 1 (< 100%)
+                        predicted_pct = pred_val * 100
+
+                rates.append({
+                    "exchange": exchange_name.capitalize(),
+                    "pair": display_pair,
+                    "rate": rate_pct,
+                    "predicted": predicted_pct,
+                    "nextFunding": next_funding_seconds,
+                })
+        except Exception as e:
+            # Log but continue with other exchanges
+            import logging
+            logging.warning(f"Failed to get rates from {exchange_name}: {e}")
+
+    return {"rates": rates}
 
 
 @router.get("/opportunities", response_model=dict)

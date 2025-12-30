@@ -1381,6 +1381,7 @@
                     loadEngineStatus(),
                     loadPositions(),
                     loadStats(),
+                    loadFundingRates(),
                 ]);
                 useMockData = false;
             } catch (error) {
@@ -1390,6 +1391,19 @@
                 appState.positions = mockData.positions.filter(p => p.status === 'active');
                 appState.closedPositions = mockData.closedPositions;
                 appState.fundingRates = mockData.fundingRates;
+            }
+        }
+
+        async function loadFundingRates() {
+            try {
+                const response = await api.getFundingRates();
+                if (response.rates && response.rates.length > 0) {
+                    appState.fundingRates = response.rates;
+                    renderFundingRates();
+                }
+            } catch (e) {
+                console.warn('[API] Failed to load funding rates:', e);
+                throw e;
             }
         }
 
@@ -1595,19 +1609,26 @@
         // Render funding rates
         function renderFundingRates() {
             const tbody = document.querySelector('#funding-table tbody');
-            const rates = useMockData ? mockData.fundingRates : (appState.fundingRates.length ? appState.fundingRates : mockData.fundingRates);
+            const rates = appState.fundingRates.length ? appState.fundingRates : mockData.fundingRates;
+
+            if (rates.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-gray">No funding rates available</td></tr>';
+                return;
+            }
+
             tbody.innerHTML = rates.map(item => {
                 const apr = (item.rate * 3 * 365).toFixed(1);
                 const rateClass = item.rate >= 0 ? 'positive' : 'negative';
                 const tagClass = `tag-${item.exchange.toLowerCase()}`;
+                const predicted = item.predicted !== null && item.predicted !== undefined ? item.predicted : item.rate;
                 return `
                     <tr>
                         <td><span class="exchange-tag ${tagClass}">${item.exchange.substring(0, 3).toUpperCase()}</span></td>
                         <td class="amber">${item.pair}</td>
                         <td class="${rateClass}">${item.rate >= 0 ? '+' : ''}${item.rate.toFixed(4)}%</td>
-                        <td class="${item.predicted >= 0 ? 'positive' : 'negative'}">${item.predicted >= 0 ? '+' : ''}${item.predicted.toFixed(4)}%</td>
+                        <td class="${predicted >= 0 ? 'positive' : 'negative'}">${predicted >= 0 ? '+' : ''}${predicted.toFixed(4)}%</td>
                         <td class="${rateClass}">${apr}%</td>
-                        <td class="countdown-cell" data-seconds="${item.nextFunding}">--:--</td>
+                        <td class="countdown-cell" data-seconds="${item.nextFunding || 0}">--:--</td>
                     </tr>
                 `;
             }).join('');
