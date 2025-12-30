@@ -15,11 +15,11 @@ from .config import load_config, Config
 from .utils.logging import setup_logging, get_logger
 
 # Will be imported after other modules are created
-# from .database import init_database, get_session
-# from .exchanges import create_exchanges
-# from .engine import TradingCoordinator
-# from .api import create_app, run_server
-# from .alerts import create_alert_service
+from .database import init_database, get_session
+from .exchanges import create_exchanges
+from .engine import TradingCoordinator
+from .api import create_app, ServerWrapper
+from .alerts import create_alert_service
 
 logger = get_logger(__name__)
 
@@ -52,38 +52,39 @@ class Application:
                 Path(self.config.database.sqlite_path).parent.mkdir(parents=True, exist_ok=True)
 
             # Initialize database
-            # await init_database(self.config.database)
+            await init_database(self.config.database)
             logger.info("database_initialized")
 
             # Initialize alert service
-            # self.alert_service = create_alert_service(self.config.telegram)
+            self.alert_service = create_alert_service(self.config.telegram)
             logger.info("alert_service_initialized")
 
             # Initialize exchange connections
-            # self.exchanges = await create_exchanges(self.config)
+            self.exchanges = await create_exchanges(self.config)
             logger.info("exchanges_connected", count=len(self.config.exchanges))
 
             # Initialize trading coordinator
-            # self.coordinator = TradingCoordinator(
-            #     config=self.config.trading,
-            #     exchanges=self.exchanges,
-            #     alert_service=self.alert_service,
-            # )
+            self.coordinator = TradingCoordinator(
+                config=self.config.trading,
+                exchanges=self.exchanges,
+                alert_callback=self.alert_service,
+            )
             logger.info("trading_coordinator_initialized")
 
             # Reconcile state with exchanges on startup
-            # issues = await self.coordinator.reconcile_state()
-            # if issues:
-            #     logger.error("state_reconciliation_failed", issues=issues)
-            #     raise RuntimeError("State mismatch detected. Manual review required.")
+            issues = await self.coordinator.reconcile_state()
+            if issues:
+                logger.error("state_reconciliation_failed", issues=issues)
+                raise RuntimeError("State mismatch detected. Manual review required.")
 
             # Start trading engine
-            # await self.coordinator.start()
+            await self.coordinator.start()
             logger.info("trading_engine_started")
 
             # Start API server
-            # self.api_server = create_app(self.config, self.coordinator, self.exchanges)
-            # asyncio.create_task(run_server(self.api_server, self.config.api))
+            app = create_app(self.config, self.coordinator, self.exchanges)
+            self.api_server = ServerWrapper(app)
+            asyncio.create_task(self.api_server.serve(self.config.api))
             logger.info("api_server_started", host=self.config.api.host, port=self.config.api.port)
 
             self._running = True
@@ -109,26 +110,26 @@ class Application:
 
         try:
             # Stop trading engine first
-            # if self.coordinator:
-            #     await self.coordinator.stop()
+            if self.coordinator:
+                await self.coordinator.stop()
             logger.info("trading_engine_stopped")
 
             # Save checkpoint
-            # if self.coordinator:
-            #     await self.coordinator.save_checkpoint()
+            if self.coordinator:
+                await self.coordinator.save_checkpoint()
             logger.info("checkpoint_saved")
 
             # Close exchange connections
             for name, exchange in self.exchanges.items():
                 try:
-                    # await exchange.disconnect()
+                    await exchange.disconnect()
                     logger.info("exchange_disconnected", exchange=name)
                 except Exception as e:
                     logger.warning("exchange_disconnect_failed", exchange=name, error=str(e))
 
             # Stop API server
-            # if self.api_server:
-            #     await self.api_server.shutdown()
+            if self.api_server:
+                await self.api_server.shutdown()
             logger.info("api_server_stopped")
 
             # Send shutdown notification
@@ -178,7 +179,7 @@ async def async_main(config_path: str, password: Optional[str] = None) -> None:
 
     # Set up logging based on config
     setup_logging(
-        level="DEBUG" if config.is_simulation_mode() else "INFO",
+        level="INFO" if config.is_simulation_mode() else "INFO",
         json_output=not config.is_simulation_mode(),
     )
 

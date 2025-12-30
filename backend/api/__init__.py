@@ -1,6 +1,6 @@
 """API module - FastAPI server and routes."""
 
-from .server import create_app, run_server
+from .server import create_app, run_server, ServerWrapper
 from .websocket import WebSocketManager, ws_manager
 from .schemas import (
     PositionResponse,
@@ -14,6 +14,7 @@ from .schemas import (
 __all__ = [
     "create_app",
     "run_server",
+    "ServerWrapper",
     "WebSocketManager",
     "ws_manager",
     "PositionResponse",

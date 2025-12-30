@@ -18,6 +18,38 @@ from .websocket import ws_manager
 logger = get_logger(__name__)
 
 
+class ServerWrapper:
+    """Wrapper around FastAPI app and uvicorn server for graceful shutdown."""
+
+    def __init__(self, app: FastAPI):
+        self.app = app
+        self._server: Optional[uvicorn.Server] = None
+
+    async def serve(self, config: Optional[APIConfig] = None) -> None:
+        """Start serving the application."""
+        host = config.host if config else "0.0.0.0"
+        port = config.port if config else 8000
+
+        logger.info("starting_uvicorn", host=host, port=port)
+
+        server_config = uvicorn.Config(
+            app=self.app,
+            host=host,
+            port=port,
+            log_level="info",
+            access_log=True,
+        )
+
+        self._server = uvicorn.Server(server_config)
+        await self._server.serve()
+
+    async def shutdown(self) -> None:
+        """Signal the server to shut down gracefully."""
+        if self._server:
+            logger.info("shutting_down_uvicorn")
+            self._server.should_exit = True
+
+
 def create_app(
     config: Optional[Config] = None,
     coordinator = None,

@@ -60,6 +60,18 @@ crypto-funding-arbitrage/
 └── CLAUDE.md     # This file
 ```
 
+## Development
+
+```bash
+# Activate virtualenv
+source .venv/bin/activate
+
+# Run tests
+python -m pytest tests/ -v --tb=short
+```
+
+**Important:** Always run the tests after every fix.
+
 ## Usage
 
 ```bash
