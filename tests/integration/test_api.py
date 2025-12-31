@@ -175,6 +175,91 @@ class TestConfigEndpoints:
         assert data["exchange"] == "binance"
 
 
+class TestEngineRatesEndpoint:
+    """Tests for the /api/engine/rates endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_get_funding_rates_no_exchanges(self, async_client: AsyncClient):
+        """Test getting funding rates when no exchanges connected."""
+        response = await async_client.get("/api/engine/rates")
+        assert response.status_code == 200
+        data = response.json()
+        assert "rates" in data
+        # Without exchanges, should return empty or message
+        assert isinstance(data["rates"], list)
+
+    @pytest.mark.asyncio
+    async def test_get_funding_rates_response_structure(self, async_client: AsyncClient):
+        """Test that rates response has expected structure."""
+        response = await async_client.get("/api/engine/rates")
+        assert response.status_code == 200
+        data = response.json()
+        assert "rates" in data
+
+
+class TestEngineOpportunitiesEndpoint:
+    """Tests for the /api/engine/opportunities endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_get_opportunities(self, async_client: AsyncClient):
+        """Test getting current opportunities."""
+        response = await async_client.get("/api/engine/opportunities")
+        assert response.status_code == 200
+        data = response.json()
+        assert "opportunities" in data
+
+    @pytest.mark.asyncio
+    async def test_get_opportunities_empty(self, async_client: AsyncClient):
+        """Test getting opportunities when none exist."""
+        response = await async_client.get("/api/engine/opportunities")
+        assert response.status_code == 200
+        data = response.json()
+        assert isinstance(data["opportunities"], list)
+
+
+class TestEngineScanEndpoint:
+    """Tests for the /api/engine/scan endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_force_scan_not_implemented(self, async_client: AsyncClient):
+        """Test force scan (requires scanner integration)."""
+        response = await async_client.post("/api/engine/scan")
+        # Returns 501 because scanner is not wired
+        assert response.status_code == 501
+
+
+class TestEngineStopEndpoint:
+    """Tests for the /api/engine/stop endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_stop_engine_not_implemented(self, async_client: AsyncClient):
+        """Test stopping engine (not fully implemented)."""
+        response = await async_client.post("/api/engine/stop")
+        # Returns 501 because coordinator is not wired
+        assert response.status_code == 501
+
+
+class TestEngineKillSwitchEndpoints:
+    """Tests for kill switch endpoints."""
+
+    @pytest.mark.asyncio
+    async def test_kill_switch_confirm_true(self, async_client: AsyncClient):
+        """Test kill switch with confirm=True (not implemented)."""
+        response = await async_client.post(
+            "/api/engine/kill",
+            json={"confirm": True, "reason": "Test activation"}
+        )
+        # Returns 501 because coordinator is not wired
+        assert response.status_code == 501
+
+    @pytest.mark.asyncio
+    async def test_deactivate_kill_switch_not_implemented(self, async_client: AsyncClient):
+        """Test deactivating kill switch (not implemented)."""
+        response = await async_client.post("/api/engine/kill/deactivate")
+        # Returns 501 because coordinator is not wired
+        assert response.status_code == 501
+
+
 class TestAPIErrorHandling:
     """Tests for API error handling."""
 
