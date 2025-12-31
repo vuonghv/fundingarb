@@ -298,6 +298,20 @@
         .amber { color: var(--bloomberg-amber); }
         .orange { color: var(--bloomberg-orange); }
 
+        /* Flash animation for real-time updates */
+        .flash {
+            animation: flashUpdate 0.3s ease;
+        }
+
+        @keyframes flashUpdate {
+            0% { background-color: rgba(255, 204, 0, 0.3); }
+            100% { background-color: transparent; }
+        }
+
+        .price-cell, .index-cell, .basis-cell {
+            font-variant-numeric: tabular-nums;
+        }
+
         /* Exchange Tags */
         .exchange-tag {
             display: inline-block;
@@ -887,6 +901,9 @@
                         <tr>
                             <th>Exch</th>
                             <th>Pair</th>
+                            <th>Price</th>
+                            <th>Index</th>
+                            <th>Basis</th>
                             <th>Rate</th>
                             <th>Pred</th>
                             <th>APR</th>
@@ -1251,6 +1268,9 @@
                     case 'FUNDING_RATE_UPDATE':
                         if (this.handlers.onFundingRateUpdate) this.handlers.onFundingRateUpdate(payload);
                         break;
+                    case 'PRICE_UPDATE':
+                        if (this.handlers.onPriceUpdate) this.handlers.onPriceUpdate(payload);
+                        break;
                     case 'TRADE_EXECUTED':
                         if (this.handlers.onTradeExecuted) this.handlers.onTradeExecuted(payload);
                         break;
@@ -1321,16 +1341,16 @@
         // Mock data for fallback/demo mode
         const mockData = {
             fundingRates: [
-                { exchange: 'Binance', pair: 'BTC/USDT', rate: 0.0100, predicted: 0.0085, nextFunding: 14520 },
-                { exchange: 'Binance', pair: 'ETH/USDT', rate: 0.0120, predicted: 0.0110, nextFunding: 14520 },
-                { exchange: 'Binance', pair: 'SOL/USDT', rate: 0.0250, predicted: 0.0200, nextFunding: 14520 },
-                { exchange: 'Bybit', pair: 'BTC/USDT', rate: 0.0080, predicted: 0.0075, nextFunding: 14520 },
-                { exchange: 'Bybit', pair: 'ETH/USDT', rate: 0.0095, predicted: 0.0090, nextFunding: 14520 },
-                { exchange: 'Bybit', pair: 'SOL/USDT', rate: 0.0180, predicted: 0.0160, nextFunding: 14520 },
-                { exchange: 'OKX', pair: 'BTC/USDT', rate: 0.0090, predicted: 0.0082, nextFunding: 14520 },
-                { exchange: 'OKX', pair: 'ETH/USDT', rate: 0.0105, predicted: 0.0098, nextFunding: 14520 },
-                { exchange: 'dYdX', pair: 'BTC/USD', rate: -0.0050, predicted: -0.0040, nextFunding: 3600 },
-                { exchange: 'dYdX', pair: 'ETH/USD', rate: -0.0030, predicted: -0.0025, nextFunding: 3600 },
+                { exchange: 'Binance', pair: 'BTC/USDT', rate: 0.0100, predicted: 0.0085, nextFunding: 14520, intervalHours: 8, markPrice: '94521.50', indexPrice: '94518.20' },
+                { exchange: 'Binance', pair: 'ETH/USDT', rate: 0.0120, predicted: 0.0110, nextFunding: 14520, intervalHours: 8, markPrice: '3412.85', indexPrice: '3411.50' },
+                { exchange: 'Binance', pair: 'SOL/USDT', rate: 0.0250, predicted: 0.0200, nextFunding: 14520, intervalHours: 8, markPrice: '189.45', indexPrice: '189.30' },
+                { exchange: 'Bybit', pair: 'BTC/USDT', rate: 0.0080, predicted: 0.0075, nextFunding: 14520, intervalHours: 8, markPrice: '94520.00', indexPrice: '94517.80' },
+                { exchange: 'Bybit', pair: 'ETH/USDT', rate: 0.0095, predicted: 0.0090, nextFunding: 14520, intervalHours: 8, markPrice: '3411.90', indexPrice: '3410.60' },
+                { exchange: 'Bybit', pair: 'SOL/USDT', rate: 0.0180, predicted: 0.0160, nextFunding: 14520, intervalHours: 8, markPrice: '189.35', indexPrice: '189.20' },
+                { exchange: 'OKX', pair: 'BTC/USDT', rate: 0.0090, predicted: 0.0082, nextFunding: 14520, intervalHours: 8, markPrice: '94519.50', indexPrice: '94516.90' },
+                { exchange: 'OKX', pair: 'ETH/USDT', rate: 0.0105, predicted: 0.0098, nextFunding: 14520, intervalHours: 8, markPrice: '3412.10', indexPrice: '3411.00' },
+                { exchange: 'dYdX', pair: 'BTC/USD', rate: -0.0050, predicted: -0.0040, nextFunding: 3600, intervalHours: 1, markPrice: '94515.00', indexPrice: '94520.00' },
+                { exchange: 'dYdX', pair: 'ETH/USD', rate: -0.0030, predicted: -0.0025, nextFunding: 3600, intervalHours: 1, markPrice: '3410.50', indexPrice: '3412.00' },
             ],
             positions: [
                 { id: 1, pair: 'BTC/USDT', size: 50000, longExchange: 'dYdX', shortExchange: 'Binance', entryDate: '2024-12-15', fundingCollected: 245.50, unrealizedPnl: 82.30, status: 'active' },
@@ -1477,7 +1497,10 @@
                     rate: payload.rate * 100,
                     predicted: payload.predicted_rate ? payload.predicted_rate * 100 : null,
                     nextFunding: payload.next_funding_time ?
-                        Math.floor((new Date(payload.next_funding_time) - Date.now()) / 1000) : 0
+                        Math.floor((new Date(payload.next_funding_time) - Date.now()) / 1000) : 0,
+                    intervalHours: payload.interval_hours || 8,
+                    markPrice: payload.mark_price,
+                    indexPrice: payload.index_price,
                 };
                 if (idx >= 0) {
                     appState.fundingRates[idx] = rate;
@@ -1485,6 +1508,51 @@
                     appState.fundingRates.push(rate);
                 }
                 renderFundingRates();
+            },
+            onPriceUpdate: (payload) => {
+                // Real-time price update - update specific cells without re-rendering entire table
+                const rowId = `rate-${payload.exchange}-${payload.pair}`.replace(/[^a-zA-Z0-9]/g, '-');
+                const row = document.getElementById(rowId);
+                if (!row) return;
+
+                const markPrice = payload.mark_price ? parseFloat(payload.mark_price) : null;
+                const indexPrice = payload.index_price ? parseFloat(payload.index_price) : null;
+
+                // Format price for display
+                const formatPrice = (price) => {
+                    if (price === null) return '-';
+                    if (price >= 1000) return price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                    if (price >= 1) return price.toFixed(2);
+                    return price.toFixed(4);
+                };
+
+                // Update price cells
+                const priceCell = row.querySelector('.price-cell');
+                const indexCell = row.querySelector('.index-cell');
+                const basisCell = row.querySelector('.basis-cell');
+
+                if (priceCell && markPrice !== null) {
+                    priceCell.textContent = formatPrice(markPrice);
+                    priceCell.classList.add('flash');
+                    setTimeout(() => priceCell.classList.remove('flash'), 300);
+                }
+                if (indexCell && indexPrice !== null) {
+                    indexCell.textContent = formatPrice(indexPrice);
+                }
+                if (basisCell && markPrice !== null && indexPrice !== null && indexPrice !== 0) {
+                    const basis = ((markPrice - indexPrice) / indexPrice) * 100;
+                    basisCell.textContent = (basis >= 0 ? '+' : '') + basis.toFixed(4) + '%';
+                    basisCell.className = 'basis-cell ' + (basis >= 0 ? 'positive' : 'negative');
+                }
+
+                // Also update appState for consistency
+                const idx = appState.fundingRates.findIndex(
+                    r => r.exchange === payload.exchange && r.pair === payload.pair
+                );
+                if (idx >= 0) {
+                    appState.fundingRates[idx].markPrice = payload.mark_price;
+                    appState.fundingRates[idx].indexPrice = payload.index_price;
+                }
             },
             onTradeExecuted: (payload) => {
                 showNotification(`Trade executed: ${payload.side} ${payload.size} ${payload.pair} on ${payload.exchange}`, 'info');
@@ -1612,20 +1680,49 @@
             const rates = appState.fundingRates.length ? appState.fundingRates : mockData.fundingRates;
 
             if (rates.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" class="text-gray">No funding rates available</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="9" class="text-gray">No funding rates available</td></tr>';
                 return;
             }
 
             tbody.innerHTML = rates.map(item => {
-                const apr = (item.rate * 3 * 365).toFixed(1);
+                const intervalHours = item.intervalHours || 8;
+                const periodsPerDay = 24 / intervalHours;
+                const apr = (item.rate * periodsPerDay * 365).toFixed(1);
                 const rateClass = item.rate >= 0 ? 'positive' : 'negative';
                 const tagClass = `tag-${item.exchange.toLowerCase()}`;
                 const predicted = item.predicted !== null && item.predicted !== undefined ? item.predicted : item.rate;
+
+                // Parse prices
+                const markPrice = item.markPrice ? parseFloat(item.markPrice) : null;
+                const indexPrice = item.indexPrice ? parseFloat(item.indexPrice) : null;
+
+                // Calculate basis: (markPrice - indexPrice) / indexPrice * 100
+                let basis = null;
+                let basisClass = 'text-gray';
+                if (markPrice !== null && indexPrice !== null && indexPrice !== 0) {
+                    basis = ((markPrice - indexPrice) / indexPrice) * 100;
+                    basisClass = basis >= 0 ? 'positive' : 'negative';
+                }
+
+                // Format price for display (compact for large numbers)
+                const formatPrice = (price) => {
+                    if (price === null) return '-';
+                    if (price >= 1000) return price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                    if (price >= 1) return price.toFixed(2);
+                    return price.toFixed(4);
+                };
+
+                // Create unique row id for WebSocket updates
+                const rowId = `rate-${item.exchange}-${item.pair}`.replace(/[^a-zA-Z0-9]/g, '-');
+
                 return `
-                    <tr>
+                    <tr id="${rowId}" data-exchange="${item.exchange}" data-pair="${item.pair}">
                         <td><span class="exchange-tag ${tagClass}">${item.exchange.substring(0, 3).toUpperCase()}</span></td>
                         <td class="amber">${item.pair}</td>
-                        <td class="${rateClass}">${item.rate >= 0 ? '+' : ''}${item.rate.toFixed(4)}%</td>
+                        <td class="price-cell">${formatPrice(markPrice)}</td>
+                        <td class="index-cell">${formatPrice(indexPrice)}</td>
+                        <td class="basis-cell ${basisClass}">${basis !== null ? (basis >= 0 ? '+' : '') + basis.toFixed(4) + '%' : '-'}</td>
+                        <td class="${rateClass}">${item.rate >= 0 ? '+' : ''}${item.rate.toFixed(4)}%/${intervalHours}h</td>
                         <td class="${predicted >= 0 ? 'positive' : 'negative'}">${predicted >= 0 ? '+' : ''}${predicted.toFixed(4)}%</td>
                         <td class="${rateClass}">${apr}%</td>
                         <td class="countdown-cell" data-seconds="${item.nextFunding || 0}">--:--</td>

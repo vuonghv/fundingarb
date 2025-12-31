@@ -58,6 +58,9 @@ class FundingRate:
     predicted_rate: Optional[Decimal]  # Predicted next rate (if available)
     next_funding_time: datetime  # When funding is next applied
     timestamp: datetime  # When this data was fetched
+    interval_hours: int = 8  # Funding interval in hours (default: 8h)
+    mark_price: Optional[Decimal] = None  # Mark price used for funding
+    index_price: Optional[Decimal] = None  # Index price (spot reference)
 
     @property
     def rate_percent(self) -> Decimal:
@@ -66,8 +69,9 @@ class FundingRate:
 
     @property
     def annualized_rate(self) -> Decimal:
-        """Annualized rate (assuming 3 funding periods per day)."""
-        return self.rate * Decimal("3") * Decimal("365") * Decimal("100")
+        """Annualized rate based on funding interval."""
+        periods_per_day = Decimal(24) / Decimal(self.interval_hours)
+        return self.rate * periods_per_day * Decimal(365) * Decimal(100)
 
 
 @dataclass

@@ -220,6 +220,9 @@ async def get_funding_rates(request: Request):
                     "rate": rate_pct,
                     "predicted": predicted_pct,
                     "nextFunding": next_funding_seconds,
+                    "intervalHours": rate.interval_hours,
+                    "markPrice": str(rate.mark_price) if rate.mark_price else None,
+                    "indexPrice": str(rate.index_price) if rate.index_price else None,
                 })
         except Exception as e:
             # Log but continue with other exchanges

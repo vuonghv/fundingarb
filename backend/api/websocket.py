@@ -143,6 +143,9 @@ class WebSocketManager:
         rate: float,
         predicted: Optional[float],
         next_funding_time: datetime,
+        interval_hours: int = 8,
+        mark_price: Optional[str] = None,
+        index_price: Optional[str] = None,
     ) -> None:
         """Send funding rate update event."""
         await self.broadcast("FUNDING_RATE_UPDATE", {
@@ -151,6 +154,24 @@ class WebSocketManager:
             "rate": rate,
             "predicted": predicted,
             "next_funding_time": next_funding_time.isoformat(),
+            "interval_hours": interval_hours,
+            "mark_price": mark_price,
+            "index_price": index_price,
+        })
+
+    async def send_price_update(
+        self,
+        exchange: str,
+        pair: str,
+        mark_price: str,
+        index_price: str,
+    ) -> None:
+        """Send price update event for real-time price data."""
+        await self.broadcast("PRICE_UPDATE", {
+            "exchange": exchange,
+            "pair": pair,
+            "mark_price": mark_price,
+            "index_price": index_price,
         })
 
     async def send_trade_executed(

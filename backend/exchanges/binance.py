@@ -102,15 +102,26 @@ class BinanceAdapter(ExchangeAdapter):
 
         data = await self._execute_with_retry(_fetch)
 
+        # Parse interval string (e.g., "8h") to hours
+        interval_str = data.get("interval", "8h")
+        interval_hours = int(interval_str.rstrip("h")) if interval_str else 8
+
+        # Extract mark and index prices
+        mark_price = Decimal(str(data["markPrice"])) if data.get("markPrice") else None
+        index_price = Decimal(str(data["indexPrice"])) if data.get("indexPrice") else None
+
         return FundingRate(
             exchange=self.name,
             symbol=symbol,
             rate=Decimal(str(data["fundingRate"])),
-            predicted_rate=Decimal(str(data.get("markPrice", 0))),  # Binance provides mark price
+            predicted_rate=Decimal(str(data.get("nextFundingRate"))) if data.get("nextFundingRate") else None,
             next_funding_time=datetime.fromtimestamp(
                 data["fundingTimestamp"] / 1000, tz=timezone.utc
             ),
             timestamp=datetime.now(timezone.utc),
+            interval_hours=interval_hours,
+            mark_price=mark_price,
+            index_price=index_price,
         )
 
     async def get_funding_rates(self, symbols: List[str]) -> Dict[str, FundingRate]:
@@ -126,15 +137,26 @@ class BinanceAdapter(ExchangeAdapter):
             normalized = self.normalize_symbol(symbol)
             if normalized in all_rates:
                 data = all_rates[normalized]
+                # Parse interval string (e.g., "8h") to hours
+                interval_str = data.get("interval", "8h")
+                interval_hours = int(interval_str.rstrip("h")) if interval_str else 8
+
+                # Extract mark and index prices
+                mark_price = Decimal(str(data["markPrice"])) if data.get("markPrice") else None
+                index_price = Decimal(str(data["indexPrice"])) if data.get("indexPrice") else None
+
                 result[normalized] = FundingRate(
                     exchange=self.name,
                     symbol=normalized,
                     rate=Decimal(str(data["fundingRate"])),
-                    predicted_rate=None,
+                    predicted_rate=Decimal(str(data.get("nextFundingRate"))) if data.get("nextFundingRate") else None,
                     next_funding_time=datetime.fromtimestamp(
                         data["fundingTimestamp"] / 1000, tz=timezone.utc
                     ),
                     timestamp=datetime.now(timezone.utc),
+                    interval_hours=interval_hours,
+                    mark_price=mark_price,
+                    index_price=index_price,
                 )
 
         return result
