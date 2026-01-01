@@ -83,8 +83,19 @@ class FundingRateScanner:
         await self._fetch_all_rates()
 
     async def stop(self) -> None:
-        """Stop scanning."""
+        """Stop scanning and unsubscribe from all exchanges."""
         self._running = False
+
+        # Unsubscribe from all exchange feeds
+        for name, exchange in self.exchanges.items():
+            try:
+                await exchange.unsubscribe_funding_rates()
+            except Exception as e:
+                logger.warning("unsubscribe_failed", exchange=name, error=str(e))
+
+        # Clear local callbacks
+        self._callbacks.clear()
+
         logger.info("scanner_stopped")
 
     def _on_rate_update(self, exchange: str, rate: FundingRate) -> None:

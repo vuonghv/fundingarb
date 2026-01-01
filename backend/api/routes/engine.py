@@ -4,6 +4,7 @@ Trading engine control API routes.
 
 from fastapi import APIRouter, HTTPException, Request
 
+from ...utils.logging import get_logger
 from ..schemas import (
     EngineStatusResponse,
     EngineActionResponse,
@@ -17,6 +18,7 @@ from ..schemas import (
 )
 
 router = APIRouter()
+logger = get_logger(__name__)
 
 # These routes need the trading coordinator to be injected
 # In production, use FastAPI dependencies
@@ -324,8 +326,12 @@ async def get_funding_rates(request: Request):
                 })
         except Exception as e:
             # Log but continue with other exchanges
-            import logging
-            logging.warning(f"Failed to get rates from {exchange_name}: {e}")
+            logger.warning(
+                "failed_to_get_rates",
+                exchange=exchange_name,
+                error=str(e),
+                error_type=type(e).__name__,
+            )
 
     return {"rates": rates}
 

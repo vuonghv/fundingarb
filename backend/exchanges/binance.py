@@ -174,6 +174,10 @@ class BinanceAdapter(ExchangeAdapter):
         """
         self._funding_rate_callbacks.append(callback)
 
+        # Only start polling if not already running
+        if self._funding_rate_poll_task is not None:
+            return
+
         async def poll_loop():
             while self._connected:
                 try:
@@ -181,13 +185,17 @@ class BinanceAdapter(ExchangeAdapter):
                     for rate in rates.values():
                         for cb in self._funding_rate_callbacks:
                             cb(rate)
+                except asyncio.CancelledError:
+                    break
                 except Exception as e:
                     logger.warning("funding_rate_poll_error", error=str(e))
 
-                await asyncio.sleep(30)  # Poll every 30 seconds
+                try:
+                    await asyncio.sleep(30)  # Poll every 30 seconds
+                except asyncio.CancelledError:
+                    break
 
-        # Start polling task if not already running
-        asyncio.create_task(poll_loop())
+        self._funding_rate_poll_task = asyncio.create_task(poll_loop())
 
     async def get_orderbook(self, symbol: str, depth: int = 10) -> OrderBook:
         """Get order book snapshot."""

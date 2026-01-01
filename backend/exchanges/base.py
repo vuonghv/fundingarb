@@ -94,6 +94,9 @@ class ExchangeAdapter(ABC):
         # WebSocket callbacks
         self._funding_rate_callbacks: List[Callable[[FundingRate], None]] = []
 
+        # Polling task for funding rate updates
+        self._funding_rate_poll_task: Optional[asyncio.Task] = None
+
         # Request queue for rate limiting
         self._request_queue: asyncio.Queue = asyncio.Queue()
         self._rate_limit_task: Optional[asyncio.Task] = None
@@ -181,6 +184,23 @@ class ExchangeAdapter(ABC):
             callback: Function to call when rates update
         """
         pass
+
+    async def unsubscribe_funding_rates(self) -> None:
+        """
+        Unsubscribe from funding rate updates.
+
+        Cancels the polling task and clears all callbacks.
+        """
+        if self._funding_rate_poll_task:
+            self._funding_rate_poll_task.cancel()
+            try:
+                await self._funding_rate_poll_task
+            except asyncio.CancelledError:
+                pass
+            self._funding_rate_poll_task = None
+
+        self._funding_rate_callbacks.clear()
+        logger.info("unsubscribed_funding_rates", exchange=self.name)
 
     @abstractmethod
     async def get_orderbook(self, symbol: str, depth: int = 10) -> OrderBook:
