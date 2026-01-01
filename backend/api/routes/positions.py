@@ -3,7 +3,7 @@ Position management API routes.
 """
 
 from typing import List, Optional
-from fastapi import APIRouter, HTTPException, Depends, Query
+from fastapi import APIRouter, HTTPException, Depends, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...database.connection import get_session
@@ -109,35 +109,142 @@ async def get_position(position_id: str):
 
 
 @router.post("/open", response_model=PositionResponse)
-async def open_position(request: OpenPositionRequest):
+async def open_position(request: Request, body: OpenPositionRequest):
     """
     Manually open a new hedged position.
 
     This bypasses the automatic opportunity detection and immediately
     executes a position on the specified exchanges.
     """
-    # This would need the trading coordinator - for now return error
-    raise HTTPException(
-        status_code=501,
-        detail="Manual position opening requires trading engine integration"
+    coordinator = getattr(request.app.state, 'coordinator', None)
+
+    if not coordinator:
+        raise HTTPException(
+            status_code=503,
+            detail="Trading coordinator not initialized"
+        )
+
+    if not coordinator.is_running:
+        raise HTTPException(
+            status_code=400,
+            detail="Engine must be running to open positions"
+        )
+
+    # Check risk limits
+    can_open, reason = coordinator.risk_manager.can_open_position(
+        body.pair,
+        body.size_usd,
     )
+    if not can_open:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot open position: {reason}"
+        )
+
+    try:
+        # Create a manual opportunity object
+        from ...engine.detector import ArbitrageOpportunity
+        from decimal import Decimal
+
+        # Get current rates for the pair
+        rates = coordinator.scanner.get_rates_for_symbol(body.pair)
+        if body.long_exchange not in rates or body.short_exchange not in rates:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Funding rates not available for {body.pair} on specified exchanges"
+            )
+
+        long_rate = rates[body.long_exchange]
+        short_rate = rates[body.short_exchange]
+
+        opportunity = ArbitrageOpportunity(
+            symbol=body.pair,
+            long_exchange=body.long_exchange,
+            short_exchange=body.short_exchange,
+            long_rate=long_rate.rate,
+            short_rate=short_rate.rate,
+            spread=short_rate.rate - long_rate.rate,
+            daily_spread=(short_rate.daily_rate - long_rate.daily_rate),
+            long_interval_hours=long_rate.interval_hours,
+            short_interval_hours=short_rate.interval_hours,
+            expected_daily_profit_usd=float(short_rate.daily_rate - long_rate.daily_rate) * body.size_usd,
+            seconds_to_funding=min(
+                (long_rate.next_funding_time - long_rate.timestamp).total_seconds(),
+                (short_rate.next_funding_time - short_rate.timestamp).total_seconds(),
+            ),
+        )
+
+        # Execute via coordinator
+        async with get_session() as session:
+            from ...engine.position_manager import PositionManager
+            position_manager = PositionManager(session, coordinator.exchanges)
+            await coordinator._execute_opportunity(position_manager, opportunity)
+
+            # Get the created position
+            positions = await position_manager.get_open_positions()
+            for pos in positions:
+                if pos.pair == body.pair:
+                    return position_to_response(pos)
+
+        raise HTTPException(
+            status_code=500,
+            detail="Position created but could not be retrieved"
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to open position: {str(e)}"
+        )
 
 
 @router.post("/{position_id}/close")
 async def close_position(
+    request: Request,
     position_id: str,
-    request: ClosePositionRequest = None,
+    body: ClosePositionRequest = None,
 ):
     """
     Close a specific position.
 
     This will market close both legs of the hedged position.
     """
-    # This would need the trading coordinator
-    raise HTTPException(
-        status_code=501,
-        detail="Position closing requires trading engine integration"
-    )
+    coordinator = getattr(request.app.state, 'coordinator', None)
+
+    if not coordinator:
+        raise HTTPException(
+            status_code=503,
+            detail="Trading coordinator not initialized"
+        )
+
+    reason = body.reason if body else "manual"
+
+    try:
+        success = await coordinator.close_position(position_id, reason)
+
+        if success:
+            # Get the closed position for response
+            async with get_session() as session:
+                repo = PositionRepository(session)
+                position = await repo.get_by_id(position_id)
+                if position:
+                    return position_to_response(position)
+
+            return {"success": True, "message": f"Position {position_id} closed"}
+        else:
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to close position"
+            )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to close position: {str(e)}"
+        )
 
 
 @router.get("/{position_id}/trades", response_model=List[TradeResponse])

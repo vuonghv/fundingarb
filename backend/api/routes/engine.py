@@ -23,14 +23,30 @@ router = APIRouter()
 
 
 @router.get("/status", response_model=EngineStatusResponse)
-async def get_engine_status():
+async def get_engine_status(request: Request):
     """
     Get current trading engine status.
 
     Returns the engine state, connected exchanges, and other metrics.
     """
-    # This needs to be wired to the actual coordinator
-    # For now, return a placeholder
+    coordinator = getattr(request.app.state, 'coordinator', None)
+
+    if coordinator:
+        status = coordinator.get_status()
+        return EngineStatusResponse(
+            state=status.state.value,
+            simulation_mode=status.simulation_mode,
+            connected_exchanges=status.connected_exchanges,
+            monitored_symbols=status.monitored_symbols,
+            open_positions=status.open_positions,
+            last_scan_time=status.last_scan_time,
+            last_opportunity_time=status.last_opportunity_time,
+            pending_orders=status.pending_orders,
+            kill_switch_active=status.kill_switch_active,
+            error_message=status.error_message,
+        )
+
+    # Fallback if coordinator not available
     return EngineStatusResponse(
         state="STOPPED",
         simulation_mode=True,
@@ -46,34 +62,67 @@ async def get_engine_status():
 
 
 @router.post("/start", response_model=EngineActionResponse)
-async def start_engine():
+async def start_engine(request: Request):
     """
     Start the trading engine.
 
     Begins monitoring for arbitrage opportunities and executing trades.
     """
-    # This needs coordinator integration
-    raise HTTPException(
-        status_code=501,
-        detail="Engine control requires trading coordinator integration"
-    )
+    coordinator = getattr(request.app.state, 'coordinator', None)
+
+    if not coordinator:
+        raise HTTPException(
+            status_code=503,
+            detail="Trading coordinator not initialized"
+        )
+
+    try:
+        await coordinator.start()
+        return EngineActionResponse(
+            success=True,
+            action="start",
+            message="Engine started successfully",
+            new_state=coordinator.state.value,
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to start engine: {str(e)}"
+        )
 
 
 @router.post("/stop", response_model=EngineActionResponse)
-async def stop_engine():
+async def stop_engine(request: Request):
     """
     Stop the trading engine.
 
     Stops monitoring but keeps existing positions open.
     """
-    raise HTTPException(
-        status_code=501,
-        detail="Engine control requires trading coordinator integration"
-    )
+    coordinator = getattr(request.app.state, 'coordinator', None)
+
+    if not coordinator:
+        raise HTTPException(
+            status_code=503,
+            detail="Trading coordinator not initialized"
+        )
+
+    try:
+        await coordinator.stop()
+        return EngineActionResponse(
+            success=True,
+            action="stop",
+            message="Engine stopped successfully",
+            new_state=coordinator.state.value,
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to stop engine: {str(e)}"
+        )
 
 
 @router.post("/kill", response_model=EngineActionResponse)
-async def activate_kill_switch(request: KillSwitchRequest):
+async def activate_kill_switch(request: Request, body: KillSwitchRequest):
     """
     Activate the kill switch.
 
@@ -85,38 +134,86 @@ async def activate_kill_switch(request: KillSwitchRequest):
 
     **This action cannot be undone automatically.**
     """
-    if not request.confirm:
+    if not body.confirm:
         raise HTTPException(
             status_code=400,
             detail="Must confirm kill switch activation"
         )
 
-    raise HTTPException(
-        status_code=501,
-        detail="Kill switch requires trading coordinator integration"
-    )
+    coordinator = getattr(request.app.state, 'coordinator', None)
+
+    if not coordinator:
+        raise HTTPException(
+            status_code=503,
+            detail="Trading coordinator not initialized"
+        )
+
+    try:
+        reason = body.reason or "Manual activation via API"
+        await coordinator.activate_kill_switch(reason)
+        return EngineActionResponse(
+            success=True,
+            action="kill",
+            message=f"Kill switch activated: {reason}",
+            new_state=coordinator.state.value,
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to activate kill switch: {str(e)}"
+        )
 
 
 @router.post("/kill/deactivate", response_model=EngineActionResponse)
-async def deactivate_kill_switch():
+async def deactivate_kill_switch(request: Request):
     """
     Deactivate the kill switch.
 
     This re-enables trading but does not automatically restart the engine.
     """
-    raise HTTPException(
-        status_code=501,
-        detail="Kill switch requires trading coordinator integration"
-    )
+    coordinator = getattr(request.app.state, 'coordinator', None)
+
+    if not coordinator:
+        raise HTTPException(
+            status_code=503,
+            detail="Trading coordinator not initialized"
+        )
+
+    try:
+        coordinator.deactivate_kill_switch()
+        return EngineActionResponse(
+            success=True,
+            action="deactivate_kill",
+            message="Kill switch deactivated",
+            new_state=coordinator.state.value,
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to deactivate kill switch: {str(e)}"
+        )
 
 
 @router.get("/risk", response_model=RiskStatusResponse)
-async def get_risk_status():
+async def get_risk_status(request: Request):
     """
     Get current risk management status.
 
     Returns kill switch state, paused pairs, and position limits.
     """
+    coordinator = getattr(request.app.state, 'coordinator', None)
+    config = getattr(request.app.state, 'config', None)
+
+    if coordinator and coordinator.risk_manager:
+        rm = coordinator.risk_manager
+        return RiskStatusResponse(
+            kill_switch_active=rm.is_kill_switch_active,
+            kill_switch_activated_at=rm.kill_switch_activated_at,
+            trading_enabled=rm.is_trading_enabled,
+            paused_pairs=rm.paused_pairs,
+            max_position_per_pair=float(config.trading.max_position_per_pair_usd) if config else 50000.0,
+        )
+
     return RiskStatusResponse(
         kill_switch_active=False,
         kill_switch_activated_at=None,
@@ -234,24 +331,69 @@ async def get_funding_rates(request: Request):
 
 
 @router.get("/opportunities", response_model=dict)
-async def get_opportunities():
+async def get_opportunities(request: Request):
     """
     Get current arbitrage opportunities.
 
     Returns opportunities above the spread threshold.
     """
-    # This needs the detector to be wired
-    return {"opportunities": [], "message": "Requires detector integration"}
+    coordinator = getattr(request.app.state, 'coordinator', None)
+
+    if coordinator and coordinator.detector:
+        opportunities = coordinator.detector.last_opportunities
+        return {
+            "opportunities": [
+                {
+                    "symbol": opp.symbol,
+                    "long_exchange": opp.long_exchange,
+                    "short_exchange": opp.short_exchange,
+                    "spread": float(opp.spread),
+                    "daily_spread": float(opp.daily_spread),
+                    "expected_daily_profit_usd": float(opp.expected_daily_profit_usd),
+                    "long_rate": float(opp.long_rate),
+                    "short_rate": float(opp.short_rate),
+                    "seconds_to_funding": opp.seconds_to_funding,
+                }
+                for opp in opportunities
+            ],
+            "count": len(opportunities),
+        }
+
+    return {"opportunities": [], "count": 0}
 
 
 @router.post("/scan", response_model=EngineActionResponse)
-async def force_scan():
+async def force_scan(request: Request):
     """
     Force a funding rate scan.
 
     Triggers an immediate scan for opportunities outside the normal schedule.
     """
-    raise HTTPException(
-        status_code=501,
-        detail="Force scan requires scanner integration"
-    )
+    coordinator = getattr(request.app.state, 'coordinator', None)
+
+    if not coordinator:
+        raise HTTPException(
+            status_code=503,
+            detail="Trading coordinator not initialized"
+        )
+
+    if not coordinator.is_running:
+        raise HTTPException(
+            status_code=400,
+            detail="Engine must be running to force scan"
+        )
+
+    try:
+        # Trigger a manual rate fetch which will update opportunities
+        await coordinator.scanner._fetch_all_rates()
+        return EngineActionResponse(
+            success=True,
+            action="scan",
+            message="Scan triggered successfully",
+            new_state=coordinator.state.value,
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to trigger scan: {str(e)}"
+        )

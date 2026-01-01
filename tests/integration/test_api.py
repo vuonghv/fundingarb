@@ -128,11 +128,12 @@ class TestEngineEndpoints:
         assert "total_realized_pnl" in data
 
     @pytest.mark.asyncio
-    async def test_start_engine_not_implemented(self, async_client: AsyncClient):
-        """Test starting engine (not fully implemented)."""
+    async def test_start_engine_no_coordinator(self, async_client: AsyncClient):
+        """Test starting engine without coordinator returns 503."""
         response = await async_client.post("/api/engine/start")
-        # Returns 501 because coordinator is not wired
-        assert response.status_code == 501
+        # Returns 503 because coordinator is not initialized in test
+        assert response.status_code == 503
+        assert "coordinator" in response.json()["detail"].lower()
 
     @pytest.mark.asyncio
     async def test_kill_switch_requires_confirm(self, async_client: AsyncClient):
@@ -221,43 +222,47 @@ class TestEngineScanEndpoint:
     """Tests for the /api/engine/scan endpoint."""
 
     @pytest.mark.asyncio
-    async def test_force_scan_not_implemented(self, async_client: AsyncClient):
-        """Test force scan (requires scanner integration)."""
+    async def test_force_scan_no_coordinator(self, async_client: AsyncClient):
+        """Test force scan without coordinator returns 503."""
         response = await async_client.post("/api/engine/scan")
-        # Returns 501 because scanner is not wired
-        assert response.status_code == 501
+        # Returns 503 because coordinator is not initialized in test
+        assert response.status_code == 503
+        assert "coordinator" in response.json()["detail"].lower()
 
 
 class TestEngineStopEndpoint:
     """Tests for the /api/engine/stop endpoint."""
 
     @pytest.mark.asyncio
-    async def test_stop_engine_not_implemented(self, async_client: AsyncClient):
-        """Test stopping engine (not fully implemented)."""
+    async def test_stop_engine_no_coordinator(self, async_client: AsyncClient):
+        """Test stopping engine without coordinator returns 503."""
         response = await async_client.post("/api/engine/stop")
-        # Returns 501 because coordinator is not wired
-        assert response.status_code == 501
+        # Returns 503 because coordinator is not initialized in test
+        assert response.status_code == 503
+        assert "coordinator" in response.json()["detail"].lower()
 
 
 class TestEngineKillSwitchEndpoints:
     """Tests for kill switch endpoints."""
 
     @pytest.mark.asyncio
-    async def test_kill_switch_confirm_true(self, async_client: AsyncClient):
-        """Test kill switch with confirm=True (not implemented)."""
+    async def test_kill_switch_no_coordinator(self, async_client: AsyncClient):
+        """Test kill switch without coordinator returns 503."""
         response = await async_client.post(
             "/api/engine/kill",
             json={"confirm": True, "reason": "Test activation"}
         )
-        # Returns 501 because coordinator is not wired
-        assert response.status_code == 501
+        # Returns 503 because coordinator is not initialized in test
+        assert response.status_code == 503
+        assert "coordinator" in response.json()["detail"].lower()
 
     @pytest.mark.asyncio
-    async def test_deactivate_kill_switch_not_implemented(self, async_client: AsyncClient):
-        """Test deactivating kill switch (not implemented)."""
+    async def test_deactivate_kill_switch_no_coordinator(self, async_client: AsyncClient):
+        """Test deactivating kill switch without coordinator returns 503."""
         response = await async_client.post("/api/engine/kill/deactivate")
-        # Returns 501 because coordinator is not wired
-        assert response.status_code == 501
+        # Returns 503 because coordinator is not initialized in test
+        assert response.status_code == 503
+        assert "coordinator" in response.json()["detail"].lower()
 
 
 class TestAPIErrorHandling:
