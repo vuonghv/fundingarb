@@ -273,6 +273,79 @@ class TestArbitrageDetector:
         assert float(fees) == pytest.approx(16.0)
 
 
+class TestArbitrageOpportunitySchema:
+    """Tests to ensure ArbitrageOpportunity schema is correct."""
+
+    # Define expected fields - update this when schema changes
+    EXPECTED_OPPORTUNITY_FIELDS = {
+        "symbol",
+        "long_exchange",
+        "short_exchange",
+        "long_interval_hours",
+        "short_interval_hours",
+        "long_rate",
+        "short_rate",
+        "long_daily_rate",
+        "short_daily_rate",
+        "daily_spread",
+        "spread",
+        "expected_daily_profit",
+        "annualized_apr",
+        "next_funding_time",
+        "seconds_to_funding",
+        "detected_at",
+    }
+
+    def test_opportunity_has_expected_fields(self):
+        """Verify ArbitrageOpportunity has all expected field names."""
+        from dataclasses import fields
+        actual_fields = {f.name for f in fields(ArbitrageOpportunity)}
+
+        assert self.EXPECTED_OPPORTUNITY_FIELDS == actual_fields, (
+            f"ArbitrageOpportunity fields mismatch.\n"
+            f"Missing: {self.EXPECTED_OPPORTUNITY_FIELDS - actual_fields}\n"
+            f"Extra: {actual_fields - self.EXPECTED_OPPORTUNITY_FIELDS}"
+        )
+
+    def test_opportunity_has_interval_fields(self):
+        """Ensure ArbitrageOpportunity has interval fields for both exchanges."""
+        from dataclasses import fields
+        field_names = {f.name for f in fields(ArbitrageOpportunity)}
+
+        # Must have interval fields
+        assert "long_interval_hours" in field_names, (
+            "ArbitrageOpportunity must have 'long_interval_hours'"
+        )
+        assert "short_interval_hours" in field_names, (
+            "ArbitrageOpportunity must have 'short_interval_hours'"
+        )
+
+        # Must have daily rate fields
+        assert "long_daily_rate" in field_names, (
+            "ArbitrageOpportunity must have 'long_daily_rate'"
+        )
+        assert "short_daily_rate" in field_names, (
+            "ArbitrageOpportunity must have 'short_daily_rate'"
+        )
+        assert "daily_spread" in field_names, (
+            "ArbitrageOpportunity must have 'daily_spread'"
+        )
+
+    def test_opportunity_must_not_have_old_fields(self):
+        """Ensure old/removed fields are not present."""
+        from dataclasses import fields
+        field_names = {f.name for f in fields(ArbitrageOpportunity)}
+
+        # These old fields should NOT exist
+        assert "expected_profit_per_funding" not in field_names, (
+            "ArbitrageOpportunity should NOT have 'expected_profit_per_funding' (removed)"
+        )
+        assert "funding_interval_hours" not in field_names, (
+            "ArbitrageOpportunity should NOT have 'funding_interval_hours' "
+            "(replaced by long_interval_hours/short_interval_hours)"
+        )
+
+
 class TestArbitrageOpportunity:
     """Tests for ArbitrageOpportunity dataclass."""
 

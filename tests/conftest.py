@@ -62,8 +62,8 @@ def mock_config() -> Config:
         },
         trading=TradingConfig(
             symbols=["BTC/USDT:USDT", "ETH/USDT:USDT"],
-            min_spread_base=Decimal("0.0001"),
-            min_spread_per_10k=Decimal("0.00001"),
+            min_daily_spread_base=Decimal("0.0003"),  # 0.03% daily
+            min_daily_spread_per_10k=Decimal("0.00003"),  # 0.003% daily per $10k
             entry_buffer_minutes=20,
             order_fill_timeout_seconds=30,
             max_position_per_pair_usd=Decimal("50000"),

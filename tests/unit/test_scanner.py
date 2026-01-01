@@ -12,6 +12,96 @@ from backend.engine.scanner import FundingRateScanner
 from backend.exchanges.types import FundingRate
 
 
+class TestFundingRateSchema:
+    """Tests to ensure FundingRate schema has required properties."""
+
+    def test_funding_rate_has_daily_rate_property(self):
+        """Verify FundingRate has daily_rate property."""
+        rate = FundingRate(
+            exchange="binance",
+            symbol="BTC/USDT:USDT",
+            rate=Decimal("0.0001"),  # 0.01% per 8h
+            predicted_rate=None,
+            next_funding_time=datetime.now(timezone.utc) + timedelta(hours=4),
+            timestamp=datetime.now(timezone.utc),
+            interval_hours=8,
+        )
+
+        # Should have daily_rate property
+        assert hasattr(rate, "daily_rate"), (
+            "FundingRate must have 'daily_rate' property"
+        )
+        # 0.0001 * 3 (periods per day) = 0.0003
+        assert float(rate.daily_rate) == pytest.approx(0.0003)
+
+    def test_funding_rate_has_periods_per_day_property(self):
+        """Verify FundingRate has periods_per_day property."""
+        rate_8h = FundingRate(
+            exchange="binance",
+            symbol="BTC/USDT:USDT",
+            rate=Decimal("0.0001"),
+            predicted_rate=None,
+            next_funding_time=datetime.now(timezone.utc),
+            timestamp=datetime.now(timezone.utc),
+            interval_hours=8,
+        )
+
+        rate_1h = FundingRate(
+            exchange="dydx",
+            symbol="BTC/USD",
+            rate=Decimal("0.0001"),
+            predicted_rate=None,
+            next_funding_time=datetime.now(timezone.utc),
+            timestamp=datetime.now(timezone.utc),
+            interval_hours=1,
+        )
+
+        assert hasattr(rate_8h, "periods_per_day"), (
+            "FundingRate must have 'periods_per_day' property"
+        )
+        assert float(rate_8h.periods_per_day) == pytest.approx(3.0)
+        assert float(rate_1h.periods_per_day) == pytest.approx(24.0)
+
+    def test_funding_rate_daily_rate_normalization(self):
+        """Verify daily_rate correctly normalizes across different intervals."""
+        # Same raw rate, different intervals
+        rate_8h = FundingRate(
+            exchange="binance",
+            symbol="BTC/USDT:USDT",
+            rate=Decimal("0.0001"),  # 0.01% per 8h
+            predicted_rate=None,
+            next_funding_time=datetime.now(timezone.utc),
+            timestamp=datetime.now(timezone.utc),
+            interval_hours=8,
+        )
+
+        rate_1h = FundingRate(
+            exchange="dydx",
+            symbol="BTC/USD",
+            rate=Decimal("0.0001"),  # 0.01% per 1h
+            predicted_rate=None,
+            next_funding_time=datetime.now(timezone.utc),
+            timestamp=datetime.now(timezone.utc),
+            interval_hours=1,
+        )
+
+        # 1h rate should be 8x more valuable when normalized to daily
+        # 8h: 0.0001 * 3 = 0.0003 daily
+        # 1h: 0.0001 * 24 = 0.0024 daily
+        assert float(rate_8h.daily_rate) == pytest.approx(0.0003)
+        assert float(rate_1h.daily_rate) == pytest.approx(0.0024)
+        assert float(rate_1h.daily_rate) == pytest.approx(float(rate_8h.daily_rate) * 8)
+
+    def test_funding_rate_has_interval_hours_field(self):
+        """Verify FundingRate has interval_hours field."""
+        from dataclasses import fields
+        field_names = {f.name for f in fields(FundingRate)}
+
+        assert "interval_hours" in field_names, (
+            "FundingRate must have 'interval_hours' field"
+        )
+
+
 class TestFundingRateScanner:
     """Tests for FundingRateScanner."""
 

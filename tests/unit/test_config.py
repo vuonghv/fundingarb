@@ -8,6 +8,7 @@ from decimal import Decimal
 
 import pytest
 import yaml
+from pydantic import ValidationError
 
 from backend.config.schema import (
     Config,
@@ -153,3 +154,129 @@ class TestConfigLoader:
             leverage={"binance": LeverageConfig(default=5)},
         )
         assert config.leverage["binance"].default == 5
+
+
+class TestTradingConfigSchema:
+    """Tests to ensure TradingConfig schema is correct and catches invalid field names."""
+
+    # Define the expected field names - update this when schema changes
+    EXPECTED_TRADING_CONFIG_FIELDS = {
+        "symbols",
+        "min_daily_spread_base",
+        "min_daily_spread_per_10k",
+        "entry_buffer_minutes",
+        "order_fill_timeout_seconds",
+        "max_position_per_pair_usd",
+        "negative_spread_tolerance",
+        "leverage",
+        "simulation_mode",
+        "min_simulation_hours",
+    }
+
+    def test_trading_config_has_expected_fields(self):
+        """Verify TradingConfig has all expected field names."""
+        actual_fields = set(TradingConfig.model_fields.keys())
+
+        assert self.EXPECTED_TRADING_CONFIG_FIELDS == actual_fields, (
+            f"TradingConfig fields mismatch.\n"
+            f"Missing: {self.EXPECTED_TRADING_CONFIG_FIELDS - actual_fields}\n"
+            f"Extra: {actual_fields - self.EXPECTED_TRADING_CONFIG_FIELDS}"
+        )
+
+    def test_old_field_names_rejected(self):
+        """Ensure old field names (min_spread_base, min_spread_per_10k) are rejected."""
+        # Old field names should cause validation error
+        with pytest.raises(ValidationError) as exc_info:
+            TradingConfig(
+                symbols=["BTC/USDT:USDT"],
+                min_spread_base=Decimal("0.0001"),  # OLD NAME - should fail
+            )
+        assert "min_spread_base" in str(exc_info.value)
+
+        with pytest.raises(ValidationError) as exc_info:
+            TradingConfig(
+                symbols=["BTC/USDT:USDT"],
+                min_spread_per_10k=Decimal("0.00001"),  # OLD NAME - should fail
+            )
+        assert "min_spread_per_10k" in str(exc_info.value)
+
+    def test_new_field_names_accepted(self):
+        """Ensure new field names (min_daily_spread_*) are accepted."""
+        config = TradingConfig(
+            symbols=["BTC/USDT:USDT"],
+            min_daily_spread_base=Decimal("0.0003"),
+            min_daily_spread_per_10k=Decimal("0.00003"),
+        )
+        assert float(config.min_daily_spread_base) == pytest.approx(0.0003)
+        assert float(config.min_daily_spread_per_10k) == pytest.approx(0.00003)
+
+    def test_config_example_yaml_uses_correct_field_names(self):
+        """Verify config.example.yaml uses the correct field names."""
+        example_path = os.path.join(
+            os.path.dirname(__file__),
+            "..", "..", "config", "config.example.yaml"
+        )
+
+        with open(example_path, "r") as f:
+            config_data = yaml.safe_load(f)
+
+        trading_config = config_data.get("trading", {})
+
+        # Should have new field names
+        assert "min_daily_spread_base" in trading_config, (
+            "config.example.yaml should use 'min_daily_spread_base'"
+        )
+        assert "min_daily_spread_per_10k" in trading_config, (
+            "config.example.yaml should use 'min_daily_spread_per_10k'"
+        )
+
+        # Should NOT have old field names
+        assert "min_spread_base" not in trading_config, (
+            "config.example.yaml should NOT use deprecated 'min_spread_base'"
+        )
+        assert "min_spread_per_10k" not in trading_config, (
+            "config.example.yaml should NOT use deprecated 'min_spread_per_10k'"
+        )
+
+    def test_config_example_yaml_is_valid(self):
+        """Verify config.example.yaml can be loaded as valid TradingConfig."""
+        example_path = os.path.join(
+            os.path.dirname(__file__),
+            "..", "..", "config", "config.example.yaml"
+        )
+
+        with open(example_path, "r") as f:
+            config_data = yaml.safe_load(f)
+
+        trading_data = config_data.get("trading", {})
+
+        # Should not raise ValidationError
+        config = TradingConfig(**trading_data)
+        assert config.symbols is not None
+        assert len(config.symbols) > 0
+
+
+class TestConfigResponseSchema:
+    """Tests to ensure API ConfigResponse schema matches TradingConfig."""
+
+    def test_config_response_has_daily_spread_fields(self):
+        """Verify ConfigResponse uses the correct field names."""
+        from backend.api.schemas import ConfigResponse
+
+        fields = ConfigResponse.model_fields.keys()
+
+        # Should have new field names
+        assert "min_daily_spread_base" in fields, (
+            "ConfigResponse should have 'min_daily_spread_base'"
+        )
+        assert "min_daily_spread_per_10k" in fields, (
+            "ConfigResponse should have 'min_daily_spread_per_10k'"
+        )
+
+        # Should NOT have old field names
+        assert "min_spread_base" not in fields, (
+            "ConfigResponse should NOT have deprecated 'min_spread_base'"
+        )
+        assert "min_spread_per_10k" not in fields, (
+            "ConfigResponse should NOT have deprecated 'min_spread_per_10k'"
+        )

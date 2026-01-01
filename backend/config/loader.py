@@ -185,9 +185,10 @@ trading:
     - "ETH/USDT:USDT"
     - "SOL/USDT:USDT"
 
-  # Spread threshold: base + per_10k * (size / 10000)
-  min_spread_base: 0.0001      # 0.01%
-  min_spread_per_10k: 0.00001  # 0.001% per $10k
+  # Daily spread threshold: base + per_10k * (size / 10000)
+  # All spreads are normalized to daily basis for cross-exchange comparison
+  min_daily_spread_base: 0.0003      # 0.03% daily (≈0.01% per 8h funding)
+  min_daily_spread_per_10k: 0.00003  # 0.003% daily per $10k
 
   # Entry timing (minutes before funding)
   entry_buffer_minutes: 20

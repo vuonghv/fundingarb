@@ -6,7 +6,7 @@ All configuration is validated at startup to catch errors early.
 
 from typing import Dict, List, Optional
 from decimal import Decimal
-from pydantic import BaseModel, SecretStr, Field, field_validator
+from pydantic import BaseModel, ConfigDict, SecretStr, Field, field_validator
 from pydantic_settings import BaseSettings
 
 
@@ -34,6 +34,9 @@ class LeverageConfig(BaseModel):
 
 class TradingConfig(BaseModel):
     """Trading strategy configuration."""
+
+    # Reject unknown field names to catch config errors early
+    model_config = ConfigDict(extra="forbid")
 
     # Symbols to monitor and trade
     symbols: List[str] = Field(default_factory=lambda: ["BTC/USDT:USDT", "ETH/USDT:USDT"])
