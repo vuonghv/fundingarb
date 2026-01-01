@@ -206,6 +206,47 @@ Bloomberg Terminal aesthetic:
   - Blinking countdown for urgent states
   - Scrolling ticker tape
 
+## Production Readiness Checklist
+
+When adding new features, ensure all components are properly wired:
+
+### Component Wiring Requirements
+
+| Component | Must Connect To | Test File |
+|-----------|-----------------|-----------|
+| API endpoints | `request.app.state.coordinator` | `test_api.py` |
+| WebSocket broadcasts | Called from `coordinator.py` events | `test_wiring.py` |
+| Event callbacks | Registered AND invoked | `test_wiring.py` |
+| Health check | Real exchange/coordinator status | `test_api.py` |
+
+### Checklist for New Features
+
+- [ ] **API endpoints**: Use `request.app.state` to access coordinator, exchanges, config
+- [ ] **WebSocket events**: Call `ws_manager.send_*()` from coordinator when state changes
+- [ ] **Callbacks**: Both register (`on_*()`) AND invoke (`for cb in self._on_*`) callbacks
+- [ ] **Database operations**: Use repository pattern, not direct session access
+- [ ] **Error handling**: Graceful degradation, don't crash on WebSocket/callback errors
+- [ ] **Tests**: Add tests in `test_wiring.py` for new integrations
+
+### Common Wiring Mistakes to Avoid
+
+1. **Defining but not calling**: Methods like `send_position_update()` exist but are never invoked
+2. **Registering but not triggering**: Callbacks registered via `on_*()` but never called
+3. **Hardcoded fallbacks**: Health checks returning `False` instead of checking real state
+4. **Missing app.state access**: API routes not using coordinator from `request.app.state`
+5. **Stub implementations**: Methods with `pass` or placeholder returns
+
+### Verify Wiring with Tests
+
+```bash
+# Run wiring tests specifically
+python -m pytest tests/unit/test_wiring.py -v
+
+# Check for unwired code patterns
+grep -r "raise HTTPException.*501" backend/api/  # Should find none
+grep -r "pass$" backend/engine/coordinator.py    # Check for stubs
+```
+
 ## Implementation Notes
 
 ### Daily Rate Normalization
