@@ -152,6 +152,11 @@ class APIConfig(BaseModel):
 class Config(BaseModel):
     """Root configuration model."""
 
+    # Prevent accidental logging of secrets
+    model_config = ConfigDict(
+        json_encoders={SecretStr: lambda v: "***REDACTED***"}
+    )
+
     # Exchange configurations keyed by exchange name
     exchanges: Dict[str, ExchangeConfig] = Field(default_factory=dict)
 
@@ -166,10 +171,6 @@ class Config(BaseModel):
 
     # API server settings
     api: APIConfig = Field(default_factory=APIConfig)
-
-    class Config:
-        # Prevent accidental logging of secrets
-        json_encoders = {SecretStr: lambda v: "***REDACTED***"}
 
     def get_exchange_names(self) -> List[str]:
         """Get list of configured exchange names."""

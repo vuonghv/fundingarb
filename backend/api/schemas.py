@@ -5,13 +5,15 @@ Pydantic schemas for API request/response models.
 from datetime import datetime
 from decimal import Decimal
 from typing import Dict, List, Optional, Any
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 # ==================== Position Schemas ====================
 
 class TradeResponse(BaseModel):
     """Trade execution response."""
+    model_config = ConfigDict(from_attributes=True)
+
     id: str
     position_id: str
     exchange: str
@@ -26,12 +28,11 @@ class TradeResponse(BaseModel):
     status: str
     executed_at: Optional[datetime]
 
-    class Config:
-        from_attributes = True
-
 
 class FundingEventResponse(BaseModel):
     """Funding event response."""
+    model_config = ConfigDict(from_attributes=True)
+
     id: str
     position_id: str
     exchange: str
@@ -42,12 +43,11 @@ class FundingEventResponse(BaseModel):
     position_size: float
     timestamp: datetime
 
-    class Config:
-        from_attributes = True
-
 
 class PositionResponse(BaseModel):
     """Position response model."""
+    model_config = ConfigDict(from_attributes=True)
+
     id: str
     pair: str
     long_exchange: str
@@ -67,9 +67,6 @@ class PositionResponse(BaseModel):
     funding_collected: float
     total_fees: float
     unrealized_pnl: Optional[float] = None
-
-    class Config:
-        from_attributes = True
 
 
 class PositionListResponse(BaseModel):

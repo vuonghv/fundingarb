@@ -115,13 +115,13 @@ log_info "Starting locally..."
 cd "$PROJECT_DIR"
 
 # Check Python virtual environment
-if [ ! -d "venv" ]; then
+if [ ! -d ".venv" ]; then
     log_warn "Virtual environment not found. Creating..."
-    python3 -m venv venv
-    source venv/bin/activate
+    python3 -m venv .venv
+    source .venv/bin/activate
     pip install -r requirements.txt
 else
-    source venv/bin/activate
+    source .venv/bin/activate
 fi
 
 # Run the application
