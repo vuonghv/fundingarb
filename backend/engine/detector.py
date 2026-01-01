@@ -25,6 +25,10 @@ class ArbitrageOpportunity:
     The strategy is:
     - LONG on the exchange with lower/negative funding rate (pay less or receive)
     - SHORT on the exchange with higher/positive funding rate (receive more)
+
+    All spread and profit calculations are normalized to a DAILY basis to correctly
+    compare opportunities across exchanges with different funding intervals
+    (e.g., Binance 8h vs dYdX 1h).
     """
     symbol: str
 
@@ -32,14 +36,25 @@ class ArbitrageOpportunity:
     long_exchange: str  # Exchange to go LONG (lower funding rate)
     short_exchange: str  # Exchange to go SHORT (higher funding rate)
 
-    # Funding rates
-    long_rate: Decimal  # Rate on long exchange
-    short_rate: Decimal  # Rate on short exchange
-    spread: Decimal  # short_rate - long_rate (positive = profitable)
+    # Funding intervals (hours) for each exchange
+    long_interval_hours: int  # e.g., 8 for Binance, 1 for dYdX
+    short_interval_hours: int
 
-    # Profitability estimates
-    expected_profit_per_funding: Decimal  # Expected profit per funding event
-    expected_daily_profit: Decimal  # Assuming 3 funding periods per day
+    # Raw funding rates (per their respective intervals)
+    long_rate: Decimal  # Rate on long exchange (per interval)
+    short_rate: Decimal  # Rate on short exchange (per interval)
+
+    # Daily normalized rates and spread
+    long_daily_rate: Decimal  # long_rate * (24 / long_interval_hours)
+    short_daily_rate: Decimal  # short_rate * (24 / short_interval_hours)
+    daily_spread: Decimal  # short_daily_rate - long_daily_rate
+
+    # Legacy spread field (kept for backwards compatibility)
+    # Note: This is the raw spread, prefer daily_spread for calculations
+    spread: Decimal  # short_rate - long_rate (raw, not normalized)
+
+    # Profitability estimates (all daily normalized)
+    expected_daily_profit: Decimal  # Daily profit based on normalized spread
     annualized_apr: Decimal  # Annual percentage rate
 
     # Timing
@@ -51,7 +66,12 @@ class ArbitrageOpportunity:
 
     @property
     def spread_percent(self) -> Decimal:
-        """Spread as percentage."""
+        """Daily spread as percentage."""
+        return self.daily_spread * Decimal("100")
+
+    @property
+    def raw_spread_percent(self) -> Decimal:
+        """Raw (non-normalized) spread as percentage."""
         return self.spread * Decimal("100")
 
     @property
@@ -63,9 +83,9 @@ class ArbitrageOpportunity:
         return (
             f"<ArbitrageOpportunity("
             f"symbol={self.symbol}, "
-            f"spread={self.spread_percent:.4f}%, "
-            f"long={self.long_exchange}, "
-            f"short={self.short_exchange})>"
+            f"daily_spread={self.spread_percent:.4f}%, "
+            f"long={self.long_exchange}({self.long_interval_hours}h), "
+            f"short={self.short_exchange}({self.short_interval_hours}h))>"
         )
 
 
@@ -99,18 +119,21 @@ class ArbitrageDetector:
 
     def calculate_threshold(self, position_size_usd: Decimal) -> Decimal:
         """
-        Calculate dynamic spread threshold based on position size.
+        Calculate dynamic daily spread threshold based on position size.
 
         Formula: threshold = base + (per_10k * size / 10000)
+
+        The threshold is compared against the daily normalized spread,
+        ensuring correct comparison across exchanges with different intervals.
 
         Args:
             position_size_usd: Position size in USD
 
         Returns:
-            Minimum spread required for profitability
+            Minimum daily spread required for profitability
         """
-        base = self.config.min_spread_base
-        per_10k = self.config.min_spread_per_10k
+        base = self.config.min_daily_spread_base
+        per_10k = self.config.min_daily_spread_per_10k
         return base + (per_10k * (position_size_usd / Decimal("10000")))
 
     def calculate_fees(
@@ -153,13 +176,16 @@ class ArbitrageDetector:
         """
         Find all arbitrage opportunities above threshold.
 
+        All rate comparisons and profit calculations are normalized to a DAILY basis
+        to correctly handle exchanges with different funding intervals (e.g., 8h vs 1h).
+
         Args:
             rates: Dict of exchange -> symbol -> FundingRate
             position_size_usd: Position size for threshold calculation
             min_seconds_to_funding: Minimum time to funding to consider
 
         Returns:
-            List of opportunities sorted by spread (highest first)
+            List of opportunities sorted by daily spread (highest first)
         """
         threshold = self.calculate_threshold(position_size_usd)
         opportunities: List[ArbitrageOpportunity] = []
@@ -181,19 +207,27 @@ class ArbitrageDetector:
             if len(symbol_rates) < 2:
                 continue
 
-            # Find the best long (lowest rate) and short (highest rate)
+            # Find the best long (lowest DAILY rate) and short (highest DAILY rate)
+            # Using daily_rate ensures correct comparison across different intervals
             sorted_rates = sorted(
                 symbol_rates.items(),
-                key=lambda x: x[1].rate,
+                key=lambda x: x[1].daily_rate,  # Sort by daily normalized rate
             )
 
-            long_exchange, long_rate_obj = sorted_rates[0]  # Lowest rate
-            short_exchange, short_rate_obj = sorted_rates[-1]  # Highest rate
+            long_exchange, long_rate_obj = sorted_rates[0]  # Lowest daily rate
+            short_exchange, short_rate_obj = sorted_rates[-1]  # Highest daily rate
 
-            spread = short_rate_obj.rate - long_rate_obj.rate
+            # Calculate daily normalized rates
+            long_daily_rate = long_rate_obj.daily_rate
+            short_daily_rate = short_rate_obj.daily_rate
+            daily_spread = short_daily_rate - long_daily_rate
 
-            # Skip if spread is below threshold
-            if spread < threshold:
+            # Raw spread (for backwards compatibility)
+            raw_spread = short_rate_obj.rate - long_rate_obj.rate
+
+            # Skip if daily spread is below threshold
+            # Note: threshold is now compared against daily spread
+            if daily_spread < threshold:
                 continue
 
             # Check time to funding
@@ -206,36 +240,46 @@ class ArbitrageDetector:
             if seconds_to_funding < min_seconds_to_funding:
                 continue
 
-            # Calculate profitability
-            expected_profit = position_size_usd * spread
-            fees = self.calculate_fees(position_size_usd, long_exchange, short_exchange)
-            net_profit = expected_profit - fees
+            # Calculate daily profitability using normalized daily spread
+            expected_daily_profit = position_size_usd * daily_spread
 
-            # Skip if not profitable after fees
-            if net_profit <= 0:
+            # Fees are for entry+exit, amortized over expected holding period
+            # For simplicity, we show gross daily profit; fees deducted at execution
+            fees = self.calculate_fees(position_size_usd, long_exchange, short_exchange)
+
+            # For display, we can show profit after amortized fees
+            # Assuming average holding period of 7 days for fee amortization
+            daily_fee_amortized = fees / Decimal("7")
+            net_daily_profit = expected_daily_profit - daily_fee_amortized
+
+            # Skip if not profitable after amortized fees
+            if net_daily_profit <= 0:
                 continue
 
-            # Calculate daily and annualized returns
-            daily_profit = net_profit * 3  # Assuming 3 funding periods per day
-            annualized = (daily_profit / position_size_usd) * 365 * 100  # APR %
+            # Calculate APR from daily profit
+            annualized = (net_daily_profit / position_size_usd) * Decimal("365") * Decimal("100")
 
             opportunities.append(ArbitrageOpportunity(
                 symbol=symbol,
                 long_exchange=long_exchange,
                 short_exchange=short_exchange,
+                long_interval_hours=long_rate_obj.interval_hours,
+                short_interval_hours=short_rate_obj.interval_hours,
                 long_rate=long_rate_obj.rate,
                 short_rate=short_rate_obj.rate,
-                spread=spread,
-                expected_profit_per_funding=net_profit,
-                expected_daily_profit=daily_profit,
+                long_daily_rate=long_daily_rate,
+                short_daily_rate=short_daily_rate,
+                daily_spread=daily_spread,
+                spread=raw_spread,  # Legacy field
+                expected_daily_profit=net_daily_profit,
                 annualized_apr=annualized,
                 next_funding_time=next_funding,
                 seconds_to_funding=seconds_to_funding,
                 detected_at=datetime.now(timezone.utc),
             ))
 
-        # Sort by spread (highest first) - greedy approach
-        opportunities.sort(key=lambda x: x.spread, reverse=True)
+        # Sort by daily spread (highest first) - greedy approach
+        opportunities.sort(key=lambda x: x.daily_spread, reverse=True)
 
         self._last_opportunities = opportunities
         return opportunities
@@ -274,6 +318,9 @@ class ArbitrageDetector:
         """
         Evaluate if an existing position should be kept or closed.
 
+        Uses daily normalized spread for comparison to correctly handle
+        exchanges with different funding intervals.
+
         Args:
             rates: Current funding rates
             symbol: Position symbol
@@ -281,7 +328,7 @@ class ArbitrageDetector:
             short_exchange: Current short exchange
 
         Returns:
-            Tuple of (should_keep, current_spread, reason)
+            Tuple of (should_keep, current_daily_spread, reason)
         """
         # Get current rates
         long_rate = rates.get(long_exchange, {}).get(symbol)
@@ -290,18 +337,20 @@ class ArbitrageDetector:
         if not long_rate or not short_rate:
             return False, Decimal("0"), "Missing rate data"
 
-        current_spread = short_rate.rate - long_rate.rate
+        # Use daily normalized spread for comparison
+        current_daily_spread = short_rate.daily_rate - long_rate.daily_rate
 
         # Check if spread has inverted beyond tolerance
-        if current_spread < self.config.negative_spread_tolerance:
-            return False, current_spread, f"Spread inverted: {current_spread}"
+        # Note: tolerance is compared against daily spread
+        if current_daily_spread < self.config.negative_spread_tolerance:
+            return False, current_daily_spread, f"Daily spread inverted: {current_daily_spread}"
 
         # Check if spread is still positive
-        if current_spread > 0:
-            return True, current_spread, "Spread still positive"
+        if current_daily_spread > 0:
+            return True, current_daily_spread, "Daily spread still positive"
 
         # Spread is slightly negative but within tolerance
-        return True, current_spread, "Within negative tolerance"
+        return True, current_daily_spread, "Within negative tolerance"
 
     @property
     def last_opportunities(self) -> List[ArbitrageOpportunity]:

@@ -217,7 +217,8 @@ async def get_funding_rates(request: Request):
                 rates.append({
                     "exchange": exchange_name.capitalize(),
                     "pair": display_pair,
-                    "rate": rate_pct,
+                    "rate": rate_pct,  # Per-interval rate as percentage
+                    "dailyRate": float(rate.daily_rate_percent),  # Daily normalized rate as percentage
                     "predicted": predicted_pct,
                     "nextFunding": next_funding_seconds,
                     "intervalHours": rate.interval_hours,

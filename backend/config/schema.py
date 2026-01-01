@@ -39,8 +39,17 @@ class TradingConfig(BaseModel):
     symbols: List[str] = Field(default_factory=lambda: ["BTC/USDT:USDT", "ETH/USDT:USDT"])
 
     # Spread threshold settings (dynamic: base + per_10k * size/10000)
-    min_spread_base: Decimal = Field(default=Decimal("0.0001"))  # 0.01%
-    min_spread_per_10k: Decimal = Field(default=Decimal("0.00001"))  # 0.001% per $10k
+    # IMPORTANT: These thresholds are compared against DAILY normalized spread.
+    # This ensures correct comparison across exchanges with different funding intervals.
+    # Example: 0.0003 (0.03% daily) ≈ 0.01% per 8h funding or 0.00125% per 1h funding
+    min_daily_spread_base: Decimal = Field(
+        default=Decimal("0.0003"),  # 0.03% daily
+        description="Minimum daily spread required for entry (normalized to 24h basis)"
+    )
+    min_daily_spread_per_10k: Decimal = Field(
+        default=Decimal("0.00003"),  # 0.003% daily per $10k
+        description="Additional daily spread required per $10k position size"
+    )
 
     # Entry timing
     entry_buffer_minutes: int = Field(default=20, ge=1, le=60)
@@ -71,8 +80,13 @@ class TradingConfig(BaseModel):
         return v
 
     def calculate_threshold(self, position_size_usd: Decimal) -> Decimal:
-        """Calculate dynamic spread threshold based on position size."""
-        return self.min_spread_base + (self.min_spread_per_10k * (position_size_usd / Decimal("10000")))
+        """
+        Calculate dynamic daily spread threshold based on position size.
+
+        Returns the minimum daily spread required for entry. This threshold
+        is compared against the daily normalized spread between exchanges.
+        """
+        return self.min_daily_spread_base + (self.min_daily_spread_per_10k * (position_size_usd / Decimal("10000")))
 
 
 class DatabaseConfig(BaseModel):

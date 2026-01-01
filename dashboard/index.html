@@ -947,21 +947,33 @@
                         <input type="number" id="calc-long-rate" value="-0.0050" step="0.0001">
                     </div>
                     <div class="calc-field">
+                        <label>Long Interval</label>
+                        <select id="calc-long-interval">
+                            <option value="1">1h</option>
+                            <option value="4">4h</option>
+                            <option value="8" selected>8h</option>
+                        </select>
+                    </div>
+                    <div class="calc-field">
                         <label>Short Rate %</label>
                         <input type="number" id="calc-short-rate" value="0.0150" step="0.0001">
+                    </div>
+                    <div class="calc-field">
+                        <label>Short Interval</label>
+                        <select id="calc-short-interval">
+                            <option value="1">1h</option>
+                            <option value="4">4h</option>
+                            <option value="8" selected>8h</option>
+                        </select>
                     </div>
                 </div>
                 <div class="calc-results">
                     <div class="calc-result-row">
-                        <span class="calc-result-label">Spread</span>
-                        <span class="calc-result-value positive" id="calc-spread">0.0200%</span>
+                        <span class="calc-result-label">Daily Spread</span>
+                        <span class="calc-result-value positive" id="calc-spread">0.0600%</span>
                     </div>
                     <div class="calc-result-row">
-                        <span class="calc-result-label">Per 8H</span>
-                        <span class="calc-result-value positive" id="calc-per-funding">$0.00</span>
-                    </div>
-                    <div class="calc-result-row">
-                        <span class="calc-result-label">Daily</span>
+                        <span class="calc-result-label">Daily Profit</span>
                         <span class="calc-result-value positive" id="calc-daily">$0.00</span>
                     </div>
                     <div class="calc-result-row">
@@ -1851,29 +1863,33 @@
             el.className = `pnl-value ${value >= 0 ? 'positive' : 'negative'}`;
         }
 
-        // Calculator
+        // Calculator - uses daily normalized rates for correct cross-exchange comparison
         function calculateArbitrage() {
             const size = parseFloat(document.getElementById('calc-size').value) || 0;
             const leverage = parseFloat(document.getElementById('calc-leverage').value) || 1;
             const longRate = parseFloat(document.getElementById('calc-long-rate').value) || 0;
             const shortRate = parseFloat(document.getElementById('calc-short-rate').value) || 0;
+            const longInterval = parseFloat(document.getElementById('calc-long-interval').value) || 8;
+            const shortInterval = parseFloat(document.getElementById('calc-short-interval').value) || 8;
 
-            const spread = shortRate - longRate;
+            // Normalize rates to daily basis
+            // A 0.01% rate on 8h interval = 0.03% daily (3 fundings/day)
+            // A 0.01% rate on 1h interval = 0.24% daily (24 fundings/day)
+            const longDailyRate = longRate * (24 / longInterval);
+            const shortDailyRate = shortRate * (24 / shortInterval);
+            const dailySpread = shortDailyRate - longDailyRate;
+
             const effectiveSize = size * leverage;
-            const perFunding = (effectiveSize * spread) / 100;
-            const daily = perFunding * 3;
+            const daily = (effectiveSize * dailySpread) / 100;
             const weekly = daily * 7;
             const monthly = daily * 30;
-            const apr = spread * 3 * 365;
+            const apr = dailySpread * 365;
 
-            const isPositive = spread >= 0;
+            const isPositive = dailySpread >= 0;
             const cls = isPositive ? 'positive' : 'negative';
 
-            document.getElementById('calc-spread').textContent = `${spread.toFixed(4)}%`;
+            document.getElementById('calc-spread').textContent = `${dailySpread.toFixed(4)}%`;
             document.getElementById('calc-spread').className = `calc-result-value ${cls}`;
-
-            document.getElementById('calc-per-funding').textContent = `$${perFunding.toFixed(2)}`;
-            document.getElementById('calc-per-funding').className = `calc-result-value ${cls}`;
 
             document.getElementById('calc-daily').textContent = `$${daily.toFixed(2)}`;
             document.getElementById('calc-daily').className = `calc-result-value ${cls}`;
@@ -2041,15 +2057,31 @@
             }
 
             tbody.innerHTML = appState.opportunities.slice(0, 10).map(opp => {
-                const spreadPct = (opp.spread * 100).toFixed(4);
-                const apr = (opp.spread * 3 * 365 * 100).toFixed(1);
+                // Use daily normalized spread if available, otherwise calculate from raw values
+                let dailySpreadPct, apr;
+                if (opp.daily_spread !== undefined) {
+                    // Backend provides daily normalized values
+                    dailySpreadPct = (opp.daily_spread * 100).toFixed(4);
+                    apr = opp.annualized_apr ? parseFloat(opp.annualized_apr).toFixed(1) : (opp.daily_spread * 365 * 100).toFixed(1);
+                } else {
+                    // Fallback: calculate daily spread from raw rates with intervals
+                    const longInterval = opp.long_interval_hours || 8;
+                    const shortInterval = opp.short_interval_hours || 8;
+                    const longDailyRate = (opp.long_rate || 0) * (24 / longInterval);
+                    const shortDailyRate = (opp.short_rate || 0) * (24 / shortInterval);
+                    const dailySpread = shortDailyRate - longDailyRate;
+                    dailySpreadPct = (dailySpread * 100).toFixed(4);
+                    apr = (dailySpread * 365 * 100).toFixed(1);
+                }
+                const isPositive = parseFloat(dailySpreadPct) >= 0;
+                const spreadClass = isPositive ? 'positive' : 'negative';
                 return `
                     <tr>
                         <td class="amber">${opp.pair || opp.symbol}</td>
                         <td><span class="exchange-tag tag-${(opp.long_exchange || '').toLowerCase()}">${(opp.long_exchange || '').substring(0,3).toUpperCase()}</span></td>
                         <td><span class="exchange-tag tag-${(opp.short_exchange || '').toLowerCase()}">${(opp.short_exchange || '').substring(0,3).toUpperCase()}</span></td>
-                        <td class="positive">+${spreadPct}%</td>
-                        <td class="positive">${apr}%</td>
+                        <td class="${spreadClass}">${isPositive ? '+' : ''}${dailySpreadPct}%</td>
+                        <td class="${spreadClass}">${apr}%</td>
                         <td class="${opp.recommended_size ? '' : 'text-gray'}">${opp.recommended_size ? `$${(opp.recommended_size/1000).toFixed(0)}K` : '-'}</td>
                     </tr>
                 `;
@@ -2176,7 +2208,7 @@
         }
 
         // Auto-calculate
-        document.querySelectorAll('#calc-size, #calc-leverage, #calc-long-rate, #calc-short-rate').forEach(el => {
+        document.querySelectorAll('#calc-size, #calc-leverage, #calc-long-rate, #calc-short-rate, #calc-long-interval, #calc-short-interval').forEach(el => {
             el.addEventListener('input', calculateArbitrage);
         });
 

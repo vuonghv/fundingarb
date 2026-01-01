@@ -68,10 +68,24 @@ class FundingRate:
         return self.rate * Decimal("100")
 
     @property
+    def periods_per_day(self) -> Decimal:
+        """Number of funding periods per day based on interval."""
+        return Decimal(24) / Decimal(self.interval_hours)
+
+    @property
+    def daily_rate(self) -> Decimal:
+        """Rate normalized to daily basis (sum of all funding events per day)."""
+        return self.rate * self.periods_per_day
+
+    @property
+    def daily_rate_percent(self) -> Decimal:
+        """Daily rate as a percentage."""
+        return self.daily_rate * Decimal("100")
+
+    @property
     def annualized_rate(self) -> Decimal:
         """Annualized rate based on funding interval."""
-        periods_per_day = Decimal(24) / Decimal(self.interval_hours)
-        return self.rate * periods_per_day * Decimal(365) * Decimal(100)
+        return self.daily_rate * Decimal(365) * Decimal(100)
 
 
 @dataclass

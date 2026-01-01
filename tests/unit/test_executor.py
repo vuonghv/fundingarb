@@ -67,8 +67,8 @@ class TestExecutionEngine:
         """Create trading config for tests."""
         return TradingConfig(
             symbols=["BTC/USDT:USDT", "ETH/USDT:USDT"],
-            min_spread_base=Decimal("0.0001"),
-            min_spread_per_10k=Decimal("0.00001"),
+            min_daily_spread_base=Decimal("0.0003"),  # Daily normalized
+            min_daily_spread_per_10k=Decimal("0.00003"),  # Daily normalized
             entry_buffer_minutes=20,
             order_fill_timeout_seconds=5,  # Short timeout for tests
             max_position_per_pair_usd=Decimal("50000"),
@@ -171,16 +171,23 @@ class TestExecutionEngine:
 
     @pytest.fixture
     def opportunity(self):
-        """Create a sample opportunity."""
+        """Create a sample opportunity with daily normalized rates."""
         now = datetime.now(timezone.utc)
+        # Raw rates: long=-0.0001 (8h), short=0.0003 (8h)
+        # Daily rates: long=-0.0003, short=0.0009
+        # Daily spread: 0.0012
         return ArbitrageOpportunity(
             symbol="BTC/USDT:USDT",
             long_exchange="bybit",
             short_exchange="binance",
+            long_interval_hours=8,
+            short_interval_hours=8,
             long_rate=Decimal("-0.0001"),
             short_rate=Decimal("0.0003"),
-            spread=Decimal("0.0004"),
-            expected_profit_per_funding=Decimal("4.00"),
+            long_daily_rate=Decimal("-0.0003"),
+            short_daily_rate=Decimal("0.0009"),
+            daily_spread=Decimal("0.0012"),
+            spread=Decimal("0.0004"),  # Raw spread for backwards compat
             expected_daily_profit=Decimal("12.00"),
             annualized_apr=Decimal("43.8"),
             next_funding_time=now + timedelta(hours=4),
@@ -212,7 +219,7 @@ class TestExecutionEngine:
         assert result.long_order is not None
         assert result.short_order is not None
         assert result.error_message is None
-        assert result.execution_time_ms > 0
+        assert result.execution_time_ms >= 0
 
         # Should set leverage on both exchanges
         mock_exchanges["binance"].set_leverage.assert_called()

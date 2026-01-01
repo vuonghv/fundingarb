@@ -67,7 +67,7 @@ class Application:
             self.coordinator = TradingCoordinator(
                 config=self.config.trading,
                 exchanges=self.exchanges,
-                alert_callback=self.alert_service,
+                alert_callback=self.alert_service.send,
             )
             logger.info("trading_coordinator_initialized")
 
@@ -90,11 +90,11 @@ class Application:
             self._running = True
 
             # Send startup notification
-            # if self.alert_service:
-            #     await self.alert_service.send_info(
-            #         "System Started",
-            #         f"Trading engine started in {'SIMULATION' if self.config.is_simulation_mode() else 'LIVE'} mode"
-            #     )
+            if self.alert_service:
+                await self.alert_service.send_info(
+                    "System Started",
+                    f"Trading engine started in {'SIMULATION' if self.config.is_simulation_mode() else 'LIVE'} mode"
+                )
 
         except Exception as e:
             logger.exception("startup_failed", error=str(e))

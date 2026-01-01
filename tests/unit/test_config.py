@@ -27,33 +27,33 @@ class TestTradingConfig:
         """Test threshold calculation for small position sizes."""
         config = TradingConfig(
             symbols=["BTC/USDT:USDT"],
-            min_spread_base=Decimal("0.0001"),
-            min_spread_per_10k=Decimal("0.00001"),
+            min_daily_spread_base=Decimal("0.0003"),
+            min_daily_spread_per_10k=Decimal("0.00003"),
         )
-        # For $10,000: 0.0001 + (0.00001 * 1) = 0.00011
+        # For $10,000: 0.0003 + (0.00003 * 1) = 0.00033
         threshold = config.calculate_threshold(Decimal("10000"))
-        assert float(threshold) == pytest.approx(0.00011)
+        assert float(threshold) == pytest.approx(0.00033)
 
     def test_calculate_threshold_large_size(self):
         """Test threshold calculation for large position sizes."""
         config = TradingConfig(
             symbols=["BTC/USDT:USDT"],
-            min_spread_base=Decimal("0.0001"),
-            min_spread_per_10k=Decimal("0.00001"),
+            min_daily_spread_base=Decimal("0.0003"),
+            min_daily_spread_per_10k=Decimal("0.00003"),
         )
-        # For $50,000: 0.0001 + (0.00001 * 5) = 0.00015
+        # For $50,000: 0.0003 + (0.00003 * 5) = 0.00045
         threshold = config.calculate_threshold(Decimal("50000"))
-        assert float(threshold) == pytest.approx(0.00015)
+        assert float(threshold) == pytest.approx(0.00045)
 
     def test_calculate_threshold_zero_size(self):
         """Test threshold calculation for zero position size."""
         config = TradingConfig(
             symbols=["BTC/USDT:USDT"],
-            min_spread_base=Decimal("0.0001"),
-            min_spread_per_10k=Decimal("0.00001"),
+            min_daily_spread_base=Decimal("0.0003"),
+            min_daily_spread_per_10k=Decimal("0.00003"),
         )
         threshold = config.calculate_threshold(Decimal("0"))
-        assert float(threshold) == pytest.approx(0.0001)
+        assert float(threshold) == pytest.approx(0.0003)
 
 
 class TestConfig:
@@ -88,7 +88,8 @@ class TestConfig:
     def test_config_trading_defaults(self):
         """Test trading config default values."""
         config = TradingConfig(symbols=["BTC/USDT:USDT"])
-        assert float(config.min_spread_base) == pytest.approx(0.0001)
+        # Note: min_daily_spread_base is the daily normalized threshold
+        assert float(config.min_daily_spread_base) == pytest.approx(0.0003)
         assert config.entry_buffer_minutes == 20
         assert config.order_fill_timeout_seconds == 30
         assert float(config.max_position_per_pair_usd) == 50000.0

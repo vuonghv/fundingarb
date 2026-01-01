@@ -117,9 +117,14 @@ POST /api/config/update       # Hot reload config
 
 ## Key Trading Logic
 
-**Spread Threshold** (dynamic):
+**Daily Spread Threshold** (dynamic, normalized to 24h):
 ```
-threshold = 0.01% + (0.001% * position_size_usd / 10,000)
+daily_threshold = 0.03% + (0.003% * position_size_usd / 10,000)
+```
+
+All rate comparisons are normalized to daily basis to correctly compare exchanges with different funding intervals (e.g., Binance 8h vs dYdX 1h):
+```python
+daily_rate = per_interval_rate * (24 / interval_hours)
 ```
 
 **Execution Order**:
@@ -145,8 +150,9 @@ threshold = 0.01% + (0.001% * position_size_usd / 10,000)
 - Countdown timer to next funding period (blinks when < 5 min)
 
 ### 3. Arbitrage Calculator
-- Input: position size, leverage, long/short exchange rates
-- Output: rate spread, per-funding profit, daily/weekly/monthly profit, APR
+- Input: position size, leverage, long/short exchange rates, **funding intervals**
+- Output: **daily spread**, daily/weekly/monthly profit, APR
+- Correctly normalizes rates across different funding intervals (8h vs 1h)
 - Auto-updates on input change
 
 ### 4. Position Tracker
@@ -199,3 +205,26 @@ Bloomberg Terminal aesthetic:
   - Function key hints (F1-F10)
   - Blinking countdown for urgent states
   - Scrolling ticker tape
+
+## Implementation Notes
+
+### Daily Rate Normalization
+
+All funding rate calculations are normalized to a **daily basis** to correctly compare and rank opportunities across exchanges with different funding intervals.
+
+**Key files**:
+- `backend/exchanges/types.py` - `FundingRate.daily_rate` property
+- `backend/engine/detector.py` - `ArbitrageOpportunity` with interval-aware fields
+- `backend/config/schema.py` - `min_daily_spread_base` configuration
+- `dashboard/index.html` - Calculator with interval inputs
+
+**Formula**:
+```python
+daily_rate = per_interval_rate * (24 / interval_hours)
+daily_spread = short_daily_rate - long_daily_rate
+```
+
+**Example**:
+- Binance BTC: 0.01% per 8h = 0.03% daily (3 payments/day)
+- dYdX BTC: -0.005% per 1h = -0.12% daily (24 payments/day)
+- Daily spread: 0.03% - (-0.12%) = 0.15% daily

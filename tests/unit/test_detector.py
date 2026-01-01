@@ -20,8 +20,8 @@ class TestArbitrageDetector:
         """Create trading config for tests."""
         return TradingConfig(
             symbols=["BTC/USDT:USDT", "ETH/USDT:USDT"],
-            min_spread_base=Decimal("0.0001"),
-            min_spread_per_10k=Decimal("0.00001"),
+            min_daily_spread_base=Decimal("0.0003"),  # 0.03% daily
+            min_daily_spread_per_10k=Decimal("0.00003"),  # 0.003% daily per $10k
             entry_buffer_minutes=20,
             max_position_per_pair_usd=Decimal("50000"),
             simulation_mode=True,
@@ -34,13 +34,15 @@ class TestArbitrageDetector:
 
     def test_calculate_threshold_small_size(self, detector):
         """Test threshold calculation for small position size."""
+        # 0.0003 + (0.00003 * 1) = 0.00033
         threshold = detector.calculate_threshold(Decimal("10000"))
-        assert float(threshold) == pytest.approx(0.00011)
+        assert float(threshold) == pytest.approx(0.00033)
 
     def test_calculate_threshold_large_size(self, detector):
         """Test threshold calculation for large position size."""
+        # 0.0003 + (0.00003 * 5) = 0.00045
         threshold = detector.calculate_threshold(Decimal("50000"))
-        assert float(threshold) == pytest.approx(0.00015)
+        assert float(threshold) == pytest.approx(0.00045)
 
     def test_find_opportunities_valid_spread(self, detector):
         """Test finding opportunity with valid spread."""
@@ -79,7 +81,11 @@ class TestArbitrageDetector:
         assert opp.symbol == "BTC/USDT:USDT"
         assert opp.long_exchange == "bybit"
         assert opp.short_exchange == "binance"
-        assert float(opp.spread) == pytest.approx(0.0025)  # 0.0020 - (-0.0005)
+        assert float(opp.spread) == pytest.approx(0.0025)  # 0.0020 - (-0.0005) raw
+        # Daily spread = 0.0025 * 3 (both 8h intervals) = 0.0075
+        assert float(opp.daily_spread) == pytest.approx(0.0075)
+        assert opp.long_interval_hours == 8
+        assert opp.short_interval_hours == 8
 
     def test_find_opportunities_insufficient_spread(self, detector):
         """Test that insufficient spread is not detected."""
@@ -181,10 +187,10 @@ class TestArbitrageDetector:
         opportunities = detector.find_opportunities(rates, Decimal("10000"))
 
         assert len(opportunities) == 2
-        # Verify sorted by spread descending (ETH should be first with higher spread)
+        # Verify sorted by daily_spread descending (ETH should be first with higher spread)
         assert opportunities[0].symbol == "ETH/USDT:USDT"
         assert opportunities[1].symbol == "BTC/USDT:USDT"
-        assert opportunities[0].spread > opportunities[1].spread
+        assert opportunities[0].daily_spread > opportunities[1].daily_spread
 
     def test_find_best_opportunity(self, detector):
         """Test finding the single best opportunity."""
@@ -271,15 +277,22 @@ class TestArbitrageOpportunity:
     """Tests for ArbitrageOpportunity dataclass."""
 
     def test_opportunity_creation(self):
-        """Test creating an opportunity."""
+        """Test creating an opportunity with daily normalized rates."""
+        # Raw rates: long=-0.0001 (8h), short=0.0003 (8h)
+        # Daily rates: long=-0.0003, short=0.0009
+        # Daily spread: 0.0012
         opp = ArbitrageOpportunity(
             symbol="BTC/USDT:USDT",
             long_exchange="bybit",
             short_exchange="binance",
+            long_interval_hours=8,
+            short_interval_hours=8,
             long_rate=Decimal("-0.0001"),
             short_rate=Decimal("0.0003"),
-            spread=Decimal("0.0004"),
-            expected_profit_per_funding=Decimal("4.00"),
+            long_daily_rate=Decimal("-0.0003"),  # -0.0001 * 3
+            short_daily_rate=Decimal("0.0009"),  # 0.0003 * 3
+            daily_spread=Decimal("0.0012"),  # 0.0009 - (-0.0003)
+            spread=Decimal("0.0004"),  # Raw spread for backwards compat
             expected_daily_profit=Decimal("12.00"),
             annualized_apr=Decimal("43.8"),
             next_funding_time=datetime.now(timezone.utc) + timedelta(minutes=30),
@@ -290,18 +303,24 @@ class TestArbitrageOpportunity:
         assert opp.symbol == "BTC/USDT:USDT"
         assert opp.long_exchange == "bybit"
         assert opp.short_exchange == "binance"
-        assert float(opp.spread) == 0.0004
+        assert opp.long_interval_hours == 8
+        assert opp.short_interval_hours == 8
+        assert float(opp.daily_spread) == pytest.approx(0.0012)
 
     def test_opportunity_spread_percent(self):
-        """Test spread percentage property."""
+        """Test spread percentage property (daily normalized)."""
         opp = ArbitrageOpportunity(
             symbol="BTC/USDT:USDT",
             long_exchange="bybit",
             short_exchange="binance",
+            long_interval_hours=8,
+            short_interval_hours=8,
             long_rate=Decimal("-0.0001"),
             short_rate=Decimal("0.0003"),
-            spread=Decimal("0.0004"),
-            expected_profit_per_funding=Decimal("4.00"),
+            long_daily_rate=Decimal("-0.0003"),
+            short_daily_rate=Decimal("0.0009"),
+            daily_spread=Decimal("0.0012"),  # Daily spread
+            spread=Decimal("0.0004"),  # Raw spread
             expected_daily_profit=Decimal("12.00"),
             annualized_apr=Decimal("43.8"),
             next_funding_time=datetime.now(timezone.utc) + timedelta(minutes=30),
@@ -309,7 +328,8 @@ class TestArbitrageOpportunity:
             detected_at=datetime.now(timezone.utc),
         )
 
-        assert float(opp.spread_percent) == pytest.approx(0.04)
+        # spread_percent now returns daily_spread as percentage
+        assert float(opp.spread_percent) == pytest.approx(0.12)  # 0.0012 * 100
 
     def test_opportunity_is_urgent(self):
         """Test urgent detection (< 5 minutes)."""
@@ -318,10 +338,14 @@ class TestArbitrageOpportunity:
             symbol="BTC/USDT:USDT",
             long_exchange="bybit",
             short_exchange="binance",
+            long_interval_hours=8,
+            short_interval_hours=8,
             long_rate=Decimal("-0.0001"),
             short_rate=Decimal("0.0003"),
+            long_daily_rate=Decimal("-0.0003"),
+            short_daily_rate=Decimal("0.0009"),
+            daily_spread=Decimal("0.0012"),
             spread=Decimal("0.0004"),
-            expected_profit_per_funding=Decimal("4.00"),
             expected_daily_profit=Decimal("12.00"),
             annualized_apr=Decimal("43.8"),
             next_funding_time=datetime.now(timezone.utc) + timedelta(minutes=30),
@@ -335,10 +359,14 @@ class TestArbitrageOpportunity:
             symbol="BTC/USDT:USDT",
             long_exchange="bybit",
             short_exchange="binance",
+            long_interval_hours=8,
+            short_interval_hours=8,
             long_rate=Decimal("-0.0001"),
             short_rate=Decimal("0.0003"),
+            long_daily_rate=Decimal("-0.0003"),
+            short_daily_rate=Decimal("0.0009"),
+            daily_spread=Decimal("0.0012"),
             spread=Decimal("0.0004"),
-            expected_profit_per_funding=Decimal("4.00"),
             expected_daily_profit=Decimal("12.00"),
             annualized_apr=Decimal("43.8"),
             next_funding_time=datetime.now(timezone.utc) + timedelta(minutes=2),
@@ -346,3 +374,32 @@ class TestArbitrageOpportunity:
             detected_at=datetime.now(timezone.utc),
         )
         assert opp2.is_urgent is True
+
+    def test_opportunity_mixed_intervals(self):
+        """Test opportunity with different funding intervals (e.g., Binance 8h vs dYdX 1h)."""
+        # Raw rates: long=-0.005% (1h dYdX), short=0.01% (8h Binance)
+        # Daily rates: long=-0.12% (24 periods), short=0.03% (3 periods)
+        # Daily spread: 0.15%
+        opp = ArbitrageOpportunity(
+            symbol="BTC/USDT:USDT",
+            long_exchange="dydx",
+            short_exchange="binance",
+            long_interval_hours=1,  # dYdX hourly funding
+            short_interval_hours=8,  # Binance 8h funding
+            long_rate=Decimal("-0.00005"),  # -0.005%
+            short_rate=Decimal("0.0001"),  # 0.01%
+            long_daily_rate=Decimal("-0.0012"),  # -0.00005 * 24 = -0.12%
+            short_daily_rate=Decimal("0.0003"),  # 0.0001 * 3 = 0.03%
+            daily_spread=Decimal("0.0015"),  # 0.15% daily
+            spread=Decimal("0.00015"),  # Raw spread (meaningless for mixed intervals)
+            expected_daily_profit=Decimal("150.00"),  # $100k * 0.15%
+            annualized_apr=Decimal("54.75"),  # 0.15% * 365
+            next_funding_time=datetime.now(timezone.utc) + timedelta(minutes=30),
+            seconds_to_funding=1800.0,
+            detected_at=datetime.now(timezone.utc),
+        )
+
+        assert opp.long_interval_hours == 1
+        assert opp.short_interval_hours == 8
+        assert float(opp.daily_spread) == pytest.approx(0.0015)
+        assert float(opp.spread_percent) == pytest.approx(0.15)

@@ -23,8 +23,8 @@ async def get_config(request: Request):
         return ConfigResponse(
             symbols=["BTC/USDT:USDT", "ETH/USDT:USDT"],
             exchanges=[],
-            min_spread_base=0.0001,
-            min_spread_per_10k=0.00001,
+            min_daily_spread_base=0.0003,
+            min_daily_spread_per_10k=0.00003,
             entry_buffer_minutes=20,
             order_fill_timeout_seconds=30,
             max_position_per_pair_usd=50000.0,
@@ -37,8 +37,8 @@ async def get_config(request: Request):
     return ConfigResponse(
         symbols=trading.symbols if trading else [],
         exchanges=list(config.exchanges.keys()) if config.exchanges else [],
-        min_spread_base=trading.min_spread_base if trading else 0.0001,
-        min_spread_per_10k=trading.min_spread_per_10k if trading else 0.00001,
+        min_daily_spread_base=float(trading.min_daily_spread_base) if trading else 0.0003,
+        min_daily_spread_per_10k=float(trading.min_daily_spread_per_10k) if trading else 0.00003,
         entry_buffer_minutes=trading.entry_buffer_minutes if trading else 20,
         order_fill_timeout_seconds=trading.order_fill_timeout_seconds if trading else 30,
         max_position_per_pair_usd=trading.max_position_per_pair_usd if trading else 50000.0,

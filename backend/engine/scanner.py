@@ -95,7 +95,7 @@ class FundingRateScanner:
         self._rates[exchange][rate.symbol] = rate
         self._last_update[exchange] = datetime.now(timezone.utc)
 
-        logger.debug(
+        logger.info(
             "rate_updated",
             exchange=exchange,
             symbol=rate.symbol,

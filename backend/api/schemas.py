@@ -171,8 +171,8 @@ class ConfigUpdateRequest(BaseModel):
     """Request to update configuration."""
     # Trading settings (hot reloadable)
     symbols: Optional[List[str]] = None
-    min_spread_base: Optional[float] = None
-    min_spread_per_10k: Optional[float] = None
+    min_daily_spread_base: Optional[float] = None  # Daily normalized threshold
+    min_daily_spread_per_10k: Optional[float] = None  # Daily normalized per $10k
     entry_buffer_minutes: Optional[int] = None
     order_fill_timeout_seconds: Optional[int] = None
     max_position_per_pair_usd: Optional[float] = None
@@ -184,8 +184,8 @@ class ConfigResponse(BaseModel):
     """Current configuration (sanitized)."""
     symbols: List[str]
     exchanges: List[str] = []
-    min_spread_base: float
-    min_spread_per_10k: float
+    min_daily_spread_base: float  # Daily normalized threshold (0.0003 = 0.03% daily)
+    min_daily_spread_per_10k: float  # Additional daily spread per $10k
     entry_buffer_minutes: int
     order_fill_timeout_seconds: int
     max_position_per_pair_usd: float
