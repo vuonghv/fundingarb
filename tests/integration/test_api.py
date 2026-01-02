@@ -4,7 +4,8 @@ Integration tests for the API layer.
 
 import pytest
 import pytest_asyncio
-from httpx import AsyncClient
+from httpx import AsyncClient, ASGITransport
+from unittest.mock import MagicMock
 
 
 class TestHealthEndpoints:
@@ -21,6 +22,24 @@ class TestHealthEndpoints:
         assert "timestamp" in data
 
     @pytest.mark.asyncio
+    async def test_health_check_includes_exchanges_field(self, async_client: AsyncClient):
+        """Test that health check includes exchanges field."""
+        response = await async_client.get("/api/health")
+        assert response.status_code == 200
+        data = response.json()
+        assert "exchanges" in data
+        assert isinstance(data["exchanges"], dict)
+
+    @pytest.mark.asyncio
+    async def test_health_check_includes_engine_running_field(self, async_client: AsyncClient):
+        """Test that health check includes engine_running field."""
+        response = await async_client.get("/api/health")
+        assert response.status_code == 200
+        data = response.json()
+        assert "engine_running" in data
+        assert isinstance(data["engine_running"], bool)
+
+    @pytest.mark.asyncio
     async def test_readiness_check(self, async_client: AsyncClient):
         """Test the readiness endpoint."""
         response = await async_client.get("/api/ready")
@@ -35,6 +54,233 @@ class TestHealthEndpoints:
         assert response.status_code == 200
         data = response.json()
         assert data["alive"] is True
+
+
+class TestHealthStatusConditions:
+    """Tests for health check status conditions (healthy/degraded/unhealthy)."""
+
+    @pytest.mark.asyncio
+    async def test_health_status_healthy_all_components_up(self, mock_config):
+        """Test healthy status when db, engine, and all exchanges are up."""
+        from backend.api.server import create_app
+        from backend.database.connection import init_database, close_database
+        import os
+
+        test_db_path = "/tmp/test_health_healthy.db"
+        if os.path.exists(test_db_path):
+            os.remove(test_db_path)
+
+        mock_config.database.sqlite_path = test_db_path
+        await init_database(mock_config.database)
+
+        # Create mock coordinator
+        mock_coordinator = MagicMock()
+        mock_coordinator.is_running = True
+
+        # Create mock exchanges (all connected)
+        mock_exchange1 = MagicMock()
+        mock_exchange1.is_connected = True
+        mock_exchange1._circuit_breaker_open = False
+
+        mock_exchange2 = MagicMock()
+        mock_exchange2.is_connected = True
+        mock_exchange2._circuit_breaker_open = False
+
+        app = create_app(
+            config=mock_config,
+            coordinator=mock_coordinator,
+            exchanges={"binance": mock_exchange1, "bybit": mock_exchange2},
+        )
+        app.state.config = mock_config
+        app.state.coordinator = mock_coordinator
+        app.state.exchanges = {"binance": mock_exchange1, "bybit": mock_exchange2}
+
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.get("/api/health")
+            assert response.status_code == 200
+            data = response.json()
+            assert data["status"] == "healthy"
+            assert data["database"] is True
+            assert data["engine_running"] is True
+            assert data["exchanges"]["binance"]["connected"] is True
+            assert data["exchanges"]["bybit"]["connected"] is True
+
+        await close_database()
+        if os.path.exists(test_db_path):
+            os.remove(test_db_path)
+
+    @pytest.mark.asyncio
+    async def test_health_status_degraded_engine_not_running(self, mock_config):
+        """Test degraded status when engine is not running but exchanges connected."""
+        from backend.api.server import create_app
+        from backend.database.connection import init_database, close_database
+        import os
+
+        test_db_path = "/tmp/test_health_degraded_engine.db"
+        if os.path.exists(test_db_path):
+            os.remove(test_db_path)
+
+        mock_config.database.sqlite_path = test_db_path
+        await init_database(mock_config.database)
+
+        # Create mock coordinator (not running)
+        mock_coordinator = MagicMock()
+        mock_coordinator.is_running = False
+
+        # Create mock exchanges (all connected)
+        mock_exchange = MagicMock()
+        mock_exchange.is_connected = True
+        mock_exchange._circuit_breaker_open = False
+
+        app = create_app(
+            config=mock_config,
+            coordinator=mock_coordinator,
+            exchanges={"binance": mock_exchange},
+        )
+        app.state.config = mock_config
+        app.state.coordinator = mock_coordinator
+        app.state.exchanges = {"binance": mock_exchange}
+
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.get("/api/health")
+            assert response.status_code == 200
+            data = response.json()
+            assert data["status"] == "degraded"
+            assert data["database"] is True
+            assert data["engine_running"] is False
+
+        await close_database()
+        if os.path.exists(test_db_path):
+            os.remove(test_db_path)
+
+    @pytest.mark.asyncio
+    async def test_health_status_degraded_exchange_disconnected(self, mock_config):
+        """Test degraded status when an exchange is disconnected."""
+        from backend.api.server import create_app
+        from backend.database.connection import init_database, close_database
+        import os
+
+        test_db_path = "/tmp/test_health_degraded_exchange.db"
+        if os.path.exists(test_db_path):
+            os.remove(test_db_path)
+
+        mock_config.database.sqlite_path = test_db_path
+        await init_database(mock_config.database)
+
+        # Create mock coordinator (running)
+        mock_coordinator = MagicMock()
+        mock_coordinator.is_running = True
+
+        # Create mock exchanges (one disconnected)
+        mock_exchange1 = MagicMock()
+        mock_exchange1.is_connected = True
+        mock_exchange1._circuit_breaker_open = False
+
+        mock_exchange2 = MagicMock()
+        mock_exchange2.is_connected = False  # Disconnected
+        mock_exchange2._circuit_breaker_open = False
+
+        app = create_app(
+            config=mock_config,
+            coordinator=mock_coordinator,
+            exchanges={"binance": mock_exchange1, "bybit": mock_exchange2},
+        )
+        app.state.config = mock_config
+        app.state.coordinator = mock_coordinator
+        app.state.exchanges = {"binance": mock_exchange1, "bybit": mock_exchange2}
+
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.get("/api/health")
+            assert response.status_code == 200
+            data = response.json()
+            assert data["status"] == "degraded"
+            assert data["exchanges"]["binance"]["connected"] is True
+            assert data["exchanges"]["bybit"]["connected"] is False
+
+        await close_database()
+        if os.path.exists(test_db_path):
+            os.remove(test_db_path)
+
+    @pytest.mark.asyncio
+    async def test_health_status_degraded_no_exchanges(self, mock_config):
+        """Test degraded status when no exchanges are configured."""
+        from backend.api.server import create_app
+        from backend.database.connection import init_database, close_database
+        import os
+
+        test_db_path = "/tmp/test_health_degraded_no_ex.db"
+        if os.path.exists(test_db_path):
+            os.remove(test_db_path)
+
+        mock_config.database.sqlite_path = test_db_path
+        await init_database(mock_config.database)
+
+        # No coordinator, no exchanges
+        app = create_app(
+            config=mock_config,
+            coordinator=None,
+            exchanges={},
+        )
+        app.state.config = mock_config
+        app.state.coordinator = None
+        app.state.exchanges = {}
+
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.get("/api/health")
+            assert response.status_code == 200
+            data = response.json()
+            # DB healthy but no exchanges and no engine = degraded
+            assert data["status"] == "degraded"
+            assert data["database"] is True
+            assert data["engine_running"] is False
+            assert data["exchanges"] == {}
+
+        await close_database()
+        if os.path.exists(test_db_path):
+            os.remove(test_db_path)
+
+    @pytest.mark.asyncio
+    async def test_health_check_exchange_circuit_breaker_status(self, mock_config):
+        """Test that health check reports circuit breaker status."""
+        from backend.api.server import create_app
+        from backend.database.connection import init_database, close_database
+        import os
+
+        test_db_path = "/tmp/test_health_circuit.db"
+        if os.path.exists(test_db_path):
+            os.remove(test_db_path)
+
+        mock_config.database.sqlite_path = test_db_path
+        await init_database(mock_config.database)
+
+        # Create mock exchange with circuit breaker open
+        mock_exchange = MagicMock()
+        mock_exchange.is_connected = True
+        mock_exchange._circuit_breaker_open = True
+
+        app = create_app(
+            config=mock_config,
+            coordinator=None,
+            exchanges={"binance": mock_exchange},
+        )
+        app.state.config = mock_config
+        app.state.coordinator = None
+        app.state.exchanges = {"binance": mock_exchange}
+
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            response = await client.get("/api/health")
+            assert response.status_code == 200
+            data = response.json()
+            assert data["exchanges"]["binance"]["circuit_breaker_open"] is True
+
+        await close_database()
+        if os.path.exists(test_db_path):
+            os.remove(test_db_path)
 
 
 class TestRootEndpoint:

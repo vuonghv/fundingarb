@@ -218,11 +218,18 @@ class StatsResponse(BaseModel):
 
 # ==================== Health Schemas ====================
 
+class ExchangeHealthStatus(BaseModel):
+    """Health status for a single exchange."""
+    connected: bool
+    circuit_breaker_open: bool = False
+    error: Optional[str] = None
+
+
 class HealthCheckResponse(BaseModel):
     """Health check response."""
     status: str  # "healthy", "degraded", "unhealthy"
     database: bool
-    exchanges: Dict[str, bool]
+    exchanges: Dict[str, ExchangeHealthStatus]
     engine_running: bool
     timestamp: datetime
 
