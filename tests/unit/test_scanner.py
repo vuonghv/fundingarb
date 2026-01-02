@@ -148,7 +148,8 @@ class TestFundingRateScanner:
         assert scanner.exchanges == mock_exchanges
         assert scanner._running is False
         assert scanner._rates == {}
-        assert scanner._callbacks == []
+        assert scanner._on_rates_callback is None
+        assert scanner._poll_task is None
 
     @pytest.mark.asyncio
     async def test_start(self, scanner, mock_exchanges):
@@ -160,13 +161,12 @@ class TestFundingRateScanner:
         assert scanner._running is True
         assert scanner._symbols == set(symbols)
 
-        # Should subscribe on each exchange
-        mock_exchanges["binance"].subscribe_funding_rates.assert_called_once()
-        mock_exchanges["bybit"].subscribe_funding_rates.assert_called_once()
-
-        # Should fetch initial rates
+        # Should fetch initial rates from all exchanges in parallel
         mock_exchanges["binance"].get_funding_rates.assert_called_once()
         mock_exchanges["bybit"].get_funding_rates.assert_called_once()
+
+        # Should start polling task
+        assert scanner._poll_task is not None
 
     @pytest.mark.asyncio
     async def test_start_already_running(self, scanner):
@@ -187,51 +187,36 @@ class TestFundingRateScanner:
 
         assert scanner._running is False
 
-    def test_on_rate_update(self, scanner):
-        """Test handling rate updates."""
-        now = datetime.now(timezone.utc)
-        rate = FundingRate(
-            exchange="binance",
-            symbol="BTC/USDT:USDT",
-            rate=Decimal("0.0001"),
-            predicted_rate=None,
-            next_funding_time=now + timedelta(hours=4),
-            timestamp=now,
-        )
+    @pytest.mark.asyncio
+    async def test_start_with_async_callback(self, scanner, mock_exchanges):
+        """Test starting scanner with async callback."""
+        callback = AsyncMock()
+        symbols = ["BTC/USDT:USDT"]
 
-        scanner._on_rate_update("binance", rate)
+        await scanner.start(symbols, on_rates_update=callback)
 
-        assert "binance" in scanner._rates
-        assert "BTC/USDT:USDT" in scanner._rates["binance"]
-        assert scanner._rates["binance"]["BTC/USDT:USDT"] == rate
-        assert "binance" in scanner._last_update
+        assert scanner._running is True
+        assert scanner._on_rates_callback is callback
 
-    def test_on_rate_update_notifies_callbacks(self, scanner):
-        """Test that rate updates trigger callbacks."""
-        callback = MagicMock()
-        scanner._callbacks.append(callback)
-
-        now = datetime.now(timezone.utc)
-        rate = FundingRate(
-            exchange="binance",
-            symbol="BTC/USDT:USDT",
-            rate=Decimal("0.0001"),
-            predicted_rate=None,
-            next_funding_time=now + timedelta(hours=4),
-            timestamp=now,
-        )
-
-        scanner._on_rate_update("binance", rate)
-
+        # Callback should be called with initial rates
         callback.assert_called_once()
 
-    def test_on_update_registers_callback(self, scanner):
-        """Test registering update callbacks."""
-        callback = MagicMock()
+    @pytest.mark.asyncio
+    async def test_fetch_all_rates_populates_cache(self, scanner, mock_exchanges):
+        """Test that fetching rates populates the cache."""
+        symbols = ["BTC/USDT:USDT"]
 
-        scanner.on_update(callback)
+        await scanner.start(symbols)
 
-        assert callback in scanner._callbacks
+        # Rates should be populated
+        assert "binance" in scanner._rates
+        assert "BTC/USDT:USDT" in scanner._rates["binance"]
+        assert "bybit" in scanner._rates
+        assert "BTC/USDT:USDT" in scanner._rates["bybit"]
+
+        # Last update should be recorded
+        assert "binance" in scanner._last_update
+        assert "bybit" in scanner._last_update
 
     def test_get_rates(self, scanner):
         """Test getting all rates."""
@@ -422,39 +407,36 @@ class TestFundingRateScanner:
         assert status["binance"]["last_update"] is None
         assert status["binance"]["stale"] is True
 
-    def test_callback_error_handling(self, scanner):
+    @pytest.mark.asyncio
+    async def test_callback_error_handling(self, scanner, mock_exchanges):
         """Test that callback errors are handled gracefully."""
-        def bad_callback(rates):
+        async def bad_callback(rates):
             raise ValueError("Test error")
 
-        scanner._callbacks.append(bad_callback)
+        symbols = ["BTC/USDT:USDT"]
 
-        now = datetime.now(timezone.utc)
-        rate = FundingRate(
-            exchange="binance",
-            symbol="BTC/USDT:USDT",
-            rate=Decimal("0.0001"),
-            predicted_rate=None,
-            next_funding_time=now + timedelta(hours=4),
-            timestamp=now,
-        )
+        # Start with bad callback - should not raise
+        await scanner.start(symbols, on_rates_update=bad_callback)
 
-        # Should not raise
-        scanner._on_rate_update("binance", rate)
-
-        # Rate should still be updated
+        # Scanner should still be running
+        assert scanner._running is True
+        # Rates should still be populated
         assert "binance" in scanner._rates
 
     @pytest.mark.asyncio
-    async def test_subscription_error_handling(self, scanner, mock_exchanges):
-        """Test that subscription errors are handled gracefully."""
-        mock_exchanges["binance"].subscribe_funding_rates.side_effect = Exception("Connection failed")
+    async def test_parallel_fetch_handles_exchange_errors(self, scanner, mock_exchanges):
+        """Test that errors from one exchange don't block others."""
+        mock_exchanges["binance"].get_funding_rates.side_effect = Exception("API error")
 
         # Should not raise
         await scanner.start(["BTC/USDT:USDT"])
 
         # Scanner should still be running
         assert scanner._running is True
+        # Bybit rates should still be populated
+        assert "bybit" in scanner._rates
+        # Binance should not have rates due to error
+        assert "binance" not in scanner._rates or "BTC/USDT:USDT" not in scanner._rates.get("binance", {})
 
     @pytest.mark.asyncio
     async def test_fetch_rates_error_handling(self, scanner, mock_exchanges):

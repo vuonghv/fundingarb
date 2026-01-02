@@ -8,9 +8,8 @@ leg ordering and failure recovery.
 import asyncio
 import time
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from decimal import Decimal
-from typing import Dict, Optional, Tuple
+from typing import Dict, Optional
 
 from ..config.schema import TradingConfig
 from ..exchanges.base import ExchangeAdapter, CircuitBreakerOpenError
@@ -19,8 +18,6 @@ from ..exchanges.types import (
     OrderResult,
     OrderSide,
     OrderType,
-    OrderStatus,
-    OrderBook,
 )
 from ..utils.logging import get_logger
 from .detector import ArbitrageOpportunity
@@ -140,6 +137,23 @@ class ExecutionEngine:
             first_price = first_book.mid_price
             second_price = second_book.mid_price
 
+            if first_price is None or second_price is None:
+                logger.warning(
+                    "orderbook_missing_price",
+                    symbol=opportunity.symbol,
+                    first_exchange=first_exchange,
+                    first_price=first_price,
+                    second_exchange=second_exchange,
+                    second_price=second_price,
+                )
+                return ExecutionResult(
+                    success=False,
+                    long_order=None,
+                    short_order=None,
+                    error_message="Orderbook missing price data (empty bids or asks)",
+                    execution_time_ms=int((time.time() - start_time) * 1000),
+                )
+
             first_size = size_usd / first_price
             second_size = size_usd / second_price
 
@@ -187,6 +201,28 @@ class ExecutionEngine:
                 opportunity.symbol
             )
             second_price = second_book.mid_price
+
+            if second_price is None:
+                logger.error(
+                    "second_leg_orderbook_missing_price",
+                    exchange=second_exchange,
+                    symbol=opportunity.symbol,
+                )
+                # Close first leg since we can't proceed
+                await self._emergency_close(
+                    first_exchange,
+                    opportunity.symbol,
+                    first_side,
+                    first_result.filled_size,
+                )
+                return ExecutionResult(
+                    success=False,
+                    long_order=first_result if first_side == OrderSide.BUY else None,
+                    short_order=first_result if first_side == OrderSide.SELL else None,
+                    error_message="Second leg orderbook missing price data, first leg closed",
+                    execution_time_ms=int((time.time() - start_time) * 1000),
+                )
+
             second_size = size_usd / second_price
 
             logger.info(

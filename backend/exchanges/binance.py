@@ -4,10 +4,9 @@ Binance Futures exchange adapter.
 Supports USDT-M perpetual futures via ccxt.
 """
 
-import asyncio
 from datetime import datetime, timezone
 from decimal import Decimal
-from typing import Callable, Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any
 
 import ccxt.async_support as ccxt
 
@@ -160,42 +159,6 @@ class BinanceAdapter(ExchangeAdapter):
                 )
 
         return result
-
-    async def subscribe_funding_rates(
-        self,
-        symbols: List[str],
-        callback: Callable[[FundingRate], None],
-    ) -> None:
-        """
-        Subscribe to funding rate updates.
-
-        Note: Binance doesn't have real-time funding rate WebSocket.
-        We poll every 30 seconds for funding rate changes.
-        """
-        self._funding_rate_callbacks.append(callback)
-
-        # Only start polling if not already running
-        if self._funding_rate_poll_task is not None:
-            return
-
-        async def poll_loop():
-            while self._connected:
-                try:
-                    rates = await self.get_funding_rates(symbols)
-                    for rate in rates.values():
-                        for cb in self._funding_rate_callbacks:
-                            cb(rate)
-                except asyncio.CancelledError:
-                    break
-                except Exception as e:
-                    logger.warning("funding_rate_poll_error", error=str(e))
-
-                try:
-                    await asyncio.sleep(30)  # Poll every 30 seconds
-                except asyncio.CancelledError:
-                    break
-
-        self._funding_rate_poll_task = asyncio.create_task(poll_loop())
 
     async def get_orderbook(self, symbol: str, depth: int = 10) -> OrderBook:
         """Get order book snapshot."""

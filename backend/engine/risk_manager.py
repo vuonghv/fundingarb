@@ -5,10 +5,9 @@ Handles position limits, kill switch, liquidation detection,
 and other risk controls.
 """
 
-import asyncio
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
-from typing import Dict, List, Optional, Set
+from typing import Dict, List, Optional
 
 from ..config.schema import TradingConfig
 from ..exchanges.base import ExchangeAdapter

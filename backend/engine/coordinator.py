@@ -11,8 +11,6 @@ from decimal import Decimal
 from enum import Enum
 from typing import Dict, List, Optional, Callable
 
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from ..config.schema import TradingConfig
 from ..database.connection import get_session
 from ..exchanges.base import ExchangeAdapter
@@ -20,7 +18,7 @@ from ..exchanges.types import FundingRate
 from ..utils.logging import get_logger
 from .scanner import FundingRateScanner
 from .detector import ArbitrageDetector, ArbitrageOpportunity
-from .executor import ExecutionEngine, ExecutionResult
+from .executor import ExecutionEngine
 from .position_manager import PositionManager
 from .risk_manager import RiskManager
 
@@ -114,7 +112,6 @@ class TradingCoordinator:
         self._on_funding_received: List[Callable] = []
 
         # Background tasks
-        self._main_task: Optional[asyncio.Task] = None
         self._funding_task: Optional[asyncio.Task] = None
 
         # Set alert callback on risk manager
@@ -141,14 +138,12 @@ class TradingCoordinator:
         self._state = EngineState.STARTING
 
         try:
-            # Start funding rate scanner
-            await self.scanner.start(self.config.symbols)
-
-            # Register callback for opportunity detection
-            self.scanner.on_update(self._on_rates_update)
-
-            # Start main trading loop
-            self._main_task = asyncio.create_task(self._main_loop())
+            # Start funding rate scanner with async callback
+            # The scanner will await our callback directly - no fire-and-forget
+            await self.scanner.start(
+                self.config.symbols,
+                on_rates_update=self._on_rates_update,
+            )
 
             # Start funding payment tracker
             self._funding_task = asyncio.create_task(self._funding_loop())
@@ -183,13 +178,6 @@ class TradingCoordinator:
         self._state = EngineState.STOPPING
 
         # Cancel background tasks
-        if self._main_task:
-            self._main_task.cancel()
-            try:
-                await self._main_task
-            except asyncio.CancelledError:
-                pass
-
         if self._funding_task:
             self._funding_task.cancel()
             try:
@@ -205,29 +193,6 @@ class TradingCoordinator:
 
         # Broadcast engine status via WebSocket
         await self._broadcast_engine_status()
-
-    async def _main_loop(self) -> None:
-        """Main trading loop - processes opportunities."""
-        logger.info("main_loop_started")
-
-        while self._state == EngineState.RUNNING:
-            try:
-                await asyncio.sleep(1)  # Check every second
-
-                # Skip if kill switch is active
-                if self.risk_manager.is_kill_switch_active:
-                    continue
-
-                # Process any pending opportunities
-                # (Opportunities are detected in _on_rates_update callback)
-
-            except asyncio.CancelledError:
-                break
-            except Exception as e:
-                logger.exception("main_loop_error", error=str(e))
-                await asyncio.sleep(5)
-
-        logger.info("main_loop_stopped")
 
     async def _funding_loop(self) -> None:
         """Track and record funding payments."""
@@ -363,15 +328,24 @@ class TradingCoordinator:
             except Exception as e:
                 logger.debug("liquidation_check_error", position_id=position.id, error=str(e))
 
-    def _on_rates_update(self, rates: Dict[str, Dict[str, FundingRate]]) -> None:
-        """Handle funding rate updates from scanner."""
+    async def _on_rates_update(self, rates: Dict[str, Dict[str, FundingRate]]) -> None:
+        """
+        Handle funding rate updates from scanner.
+
+        This is now async and called directly by the scanner's polling loop.
+        Sequential await is used instead of fire-and-forget create_task because:
+        - 5 symbols × 4 exchanges = 20 data points (small workload)
+        - 30 second poll interval gives ~29.5 seconds of headroom
+        - Sequential processing takes ~400ms total
+        - Explicit error handling vs silent task failures
+        """
         self._last_scan_time = datetime.now(timezone.utc)
 
-        # Broadcast funding rates via WebSocket
-        asyncio.create_task(self._broadcast_rates(rates))
+        # Broadcast funding rates via WebSocket (fast, ~40ms for 20 messages)
+        await self._broadcast_rates(rates)
 
-        # Run opportunity check in background
-        asyncio.create_task(self._process_opportunities(rates))
+        # Process opportunities (includes DB query + detection + maybe execution)
+        await self._process_opportunities(rates)
 
     async def _broadcast_rates(self, rates: Dict[str, Dict[str, FundingRate]]) -> None:
         """Broadcast all funding rates via WebSocket."""

@@ -8,7 +8,6 @@ and closing with P&L calculation.
 from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Dict, List, Optional
-from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -24,7 +23,7 @@ from ..database.models import (
 )
 from ..database.repository import PositionRepository, TradeRepository, FundingEventRepository
 from ..exchanges.base import ExchangeAdapter
-from ..exchanges.types import OrderResult, OrderSide as ExchangeOrderSide
+from ..exchanges.types import OrderResult
 from ..utils.logging import get_logger
 from .detector import ArbitrageOpportunity
 from .executor import ExecutionResult
