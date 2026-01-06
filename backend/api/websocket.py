@@ -9,8 +9,10 @@ import json
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Set
 
-from fastapi import WebSocket, WebSocketDisconnect
+from fastapi import WebSocket
 
+from ..database.connection import get_session
+from ..database.repository import PositionRepository
 from ..utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -118,6 +120,75 @@ class WebSocketManager:
         while self._connections:
             await asyncio.sleep(self._heartbeat_interval)
             await self.broadcast("HEARTBEAT", {"timestamp": datetime.now(timezone.utc).isoformat()})
+
+    async def send_initial_state(self, websocket: WebSocket) -> None:
+        """
+        Send current state to a newly connected client.
+
+        Sends ENGINE_STATUS, STATS, and FUNDING_RATE_UPDATE messages
+        so the client has immediate data without waiting for broadcasts.
+        """
+        # Access app state via the websocket object (no imports needed)
+        app = getattr(websocket, 'app', None)
+        if not app:
+            logger.debug("websocket_no_app_reference")
+            return
+
+        coordinator = getattr(app.state, 'coordinator', None)
+
+        # 1. Send engine status
+        if coordinator:
+            try:
+                status = coordinator.get_status()
+                await self.send_to(websocket, "ENGINE_STATUS", {
+                    "status": status.state.value,
+                    "connected_exchanges": status.connected_exchanges,
+                    "monitored_symbols": status.monitored_symbols,
+                    "open_positions": status.open_positions,
+                    "simulation_mode": status.simulation_mode,
+                    "kill_switch_active": status.kill_switch_active,
+                    "last_scan": status.last_scan_time.isoformat() if status.last_scan_time else None,
+                    "error": status.error_message,
+                })
+            except Exception as e:
+                logger.warning("initial_state_engine_status_failed", error=str(e))
+
+        # 2. Send trading stats
+        try:
+            async with get_session() as session:
+                repo = PositionRepository(session)
+                open_count = await repo.count_open_positions()
+                total_pnl = await repo.get_total_pnl()
+                total_funding = await repo.get_total_funding()
+
+                await self.send_to(websocket, "STATS", {
+                    "open_positions": open_count,
+                    "total_realized_pnl": float(total_pnl),
+                    "total_funding_collected": float(total_funding),
+                })
+        except Exception as e:
+            logger.warning("initial_state_stats_failed", error=str(e))
+
+        # 3. Send cached funding rates
+        if coordinator and hasattr(coordinator, 'scanner') and coordinator.scanner:
+            try:
+                rates = coordinator.scanner.get_rates()
+                for exchange, exchange_rates in rates.items():
+                    for symbol, rate in exchange_rates.items():
+                        await self.send_to(websocket, "FUNDING_RATE_UPDATE", {
+                            "exchange": exchange,
+                            "pair": rate.symbol,
+                            "rate": float(rate.rate),
+                            "predicted": float(rate.predicted_rate) if rate.predicted_rate else None,
+                            "next_funding_time": rate.next_funding_time.isoformat() if rate.next_funding_time else None,
+                            "interval_hours": rate.interval_hours,
+                            "mark_price": str(rate.mark_price) if rate.mark_price else None,
+                            "index_price": str(rate.index_price) if rate.index_price else None,
+                        })
+            except Exception as e:
+                logger.warning("initial_state_funding_rates_failed", error=str(e))
+
+        logger.debug("initial_state_sent", websocket_id=id(websocket))
 
     # ==================== Event Helper Methods ====================
 

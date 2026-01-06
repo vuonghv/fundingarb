@@ -1244,6 +1244,8 @@
                     this.isConnected = true;
                     this.reconnectDelay = CONFIG.RECONNECT_DELAY_MS;
                     this.updateConnectionStatus(true);
+                    // Notice server to recv init state
+                    this.ws.send('READY');
                     if (this.handlers.onConnect) this.handlers.onConnect();
                 };
 
@@ -1269,34 +1271,34 @@
                 };
             }
 
-            handleMessage(data) {
-                const { event, payload, timestamp } = data;
-                console.log('[WS] Event:', event, payload);
+            handleMessage(msg) {
+                const { type, data, timestamp } = msg;
+                console.log('[WS] Event:', type, data);
 
-                switch (event) {
+                switch (type) {
                     case 'POSITION_UPDATE':
-                        if (this.handlers.onPositionUpdate) this.handlers.onPositionUpdate(payload);
+                        if (this.handlers.onPositionUpdate) this.handlers.onPositionUpdate(data);
                         break;
                     case 'FUNDING_RATE_UPDATE':
-                        if (this.handlers.onFundingRateUpdate) this.handlers.onFundingRateUpdate(payload);
+                        if (this.handlers.onFundingRateUpdate) this.handlers.onFundingRateUpdate(data);
                         break;
                     case 'PRICE_UPDATE':
-                        if (this.handlers.onPriceUpdate) this.handlers.onPriceUpdate(payload);
+                        if (this.handlers.onPriceUpdate) this.handlers.onPriceUpdate(data);
                         break;
                     case 'TRADE_EXECUTED':
-                        if (this.handlers.onTradeExecuted) this.handlers.onTradeExecuted(payload);
+                        if (this.handlers.onTradeExecuted) this.handlers.onTradeExecuted(data);
                         break;
                     case 'ENGINE_STATUS':
-                        if (this.handlers.onEngineStatus) this.handlers.onEngineStatus(payload);
+                        if (this.handlers.onEngineStatus) this.handlers.onEngineStatus(data);
                         break;
                     case 'ALERT':
-                        if (this.handlers.onAlert) this.handlers.onAlert(payload);
+                        if (this.handlers.onAlert) this.handlers.onAlert(data);
                         break;
                     case 'OPPORTUNITY':
-                        if (this.handlers.onOpportunity) this.handlers.onOpportunity(payload);
+                        if (this.handlers.onOpportunity) this.handlers.onOpportunity(data);
                         break;
                     default:
-                        console.log('[WS] Unknown event:', event);
+                        console.log('[WS] Unknown event:', type);
                 }
             }
 

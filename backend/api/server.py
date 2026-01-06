@@ -114,10 +114,13 @@ def create_app(
         await ws_manager.connect(websocket)
         try:
             while True:
-                # Keep connection alive, receive any client messages
+                # Receive client messages
                 data = await websocket.receive_text()
-                # Could handle client commands here if needed
                 logger.debug("websocket_message_received", data=data)
+
+                # Handle READY message - client signals it's ready to receive
+                if data == "READY":
+                    await ws_manager.send_initial_state(websocket)
         except WebSocketDisconnect:
             ws_manager.disconnect(websocket)
         except Exception as e:
