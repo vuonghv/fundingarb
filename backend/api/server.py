@@ -4,11 +4,13 @@ FastAPI application server.
 
 import asyncio
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Optional
 
 import uvicorn
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 
 from ..config.schema import Config, APIConfig
 from ..utils.logging import get_logger
@@ -16,6 +18,9 @@ from .routes import positions_router, engine_router, config_router, health_route
 from .websocket import ws_manager
 
 logger = get_logger(__name__)
+
+# Path to dashboard directory (relative to this file)
+DASHBOARD_DIR = Path(__file__).parent.parent.parent / "dashboard"
 
 
 class ServerWrapper:
@@ -127,16 +132,11 @@ def create_app(
             logger.warning("websocket_error", error=str(e))
             ws_manager.disconnect(websocket)
 
-    # Root endpoint
+    # Root endpoint - serve dashboard
     @app.get("/")
     async def root():
-        """Root endpoint."""
-        return {
-            "name": "Funding Rate Arbitrage API",
-            "version": "1.0.0",
-            "docs": "/docs",
-            "health": "/api/health",
-        }
+        """Serve the dashboard index.html."""
+        return FileResponse(DASHBOARD_DIR / "index.html")
 
     return app
 
